@@ -1,0 +1,17 @@
+build/
+vendor/
+.venv/
+__pycache__/
+*.py[cod]
+._*
+.DS_Store
+*.bin
+*.raw
+*.elf
+*.uf2
+*.map
+*.log
+*.key
+.env*
+backups/
+captures/
