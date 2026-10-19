@@ -16,8 +16,9 @@ def adapt(text, replace_fn):
     text = text.replace('A6700-AP-read-candidate', PRODUCT)
     text = replace_fn(text, 'cmd_help', '''static void cmd_help(void)
 {
-    fb_result("A6700 raw-only maintenance: getvar, upload, download, flash");
-    fb_result("targets: nflasha, nflashaB0, nflashaB1; no plaintext slots");
+    fb_info("A6700 raw-only maintenance: getvar, upload, download, flash");
+    fb_info("targets: nflasha, nflashaB0, nflashaB1; no plaintext slots");
+    fb_okay("");
 }''')
     text = replace_fn(text, 'cmd_oem', '''static void cmd_oem(const char *args)
 {

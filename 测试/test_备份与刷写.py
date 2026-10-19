@@ -75,6 +75,7 @@ static void fastboot_command(const char *cmd)
 '''
         generated=adapter.adapt(base,namespace['replace_fn'])
         dispatch=generated[generated.index('static void fastboot_command('):]
+        help_body=generated[:generated.index('static void cmd_oem(')]
         header='''#include <stdio.h>
 #include <string.h>
 static int str_eq(const char*a,const char*b){return !strcmp(a,b);}
@@ -85,16 +86,20 @@ static void cmd_upload(void){puts("upload");}
 static void cmd_download(const char*a){puts("download");}
 static void cmd_flash(const char*a){puts(a);}
 static void fb_fail(const char*a){puts("blocked");}
+static void fb_info(const char*a){puts("INFO");}
+static void fb_okay(const char*a){puts("OKAY");}
 '''
         with tempfile.TemporaryDirectory() as folder:
             source=Path(folder)/'dispatch.c';binary=Path(folder)/'dispatch'
-            source.write_text(header+dispatch+'\nint main(int n,char**v){fastboot_command(v[1]);return 0;}\n')
+            source.write_text(header+help_body+dispatch+'\nint main(int n,char**v){if(!strcmp(v[1],"help-test"))cmd_help();else fastboot_command(v[1]);return 0;}\n')
             subprocess.run([shutil.which('cc'),str(source),'-o',str(binary)],check=True,capture_output=True)
             for command,expected in [('flash:nflasha','nflasha'),('flash:nflashaB0','nflashaB0'),
                                      ('flash:nflashaB1','nflashaB1'),('flash:nflasha15','blocked'),
                                      ('flash:nflashaB0 extra','blocked'),('erase:nflasha','blocked'),
                                      ('reboot','blocked'),('download:00000200','download')]:
                 self.assertEqual(subprocess.check_output([str(binary),command],text=True).strip(),expected)
+            self.assertEqual(subprocess.check_output([str(binary),'help-test'],text=True).splitlines(),
+                             ['INFO','INFO','OKAY'])
 
 
 if __name__=='__main__':unittest.main()
