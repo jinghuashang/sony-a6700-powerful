@@ -1,5 +1,6 @@
-"""Query fixed RAM fastboot identity/table. No dump/download/flash commands."""
+"""校验固定RAM程序身份并查询分区表；写入不从此入口执行。"""
 import argparse
+from contextlib import contextmanager
 import json
 from pathlib import Path
 
@@ -25,9 +26,10 @@ def query(device, command):
     raise RuntimeError('Too many fastboot info responses')
 
 
-def inspect(device, table=False):
+def inspect(device, table=False, mode="只读"):
     identity = query(device, 'getvar:product')
-    if identity['okay'] != 'A6700-AP-read-candidate':
+    from .记录协议 import payload_catalog
+    if identity['okay'] != payload_catalog()[mode]['产品标识']:
         raise ValueError('RAM payload identity mismatch; no partition query sent')
     result = {'product': identity['okay'], 'version': query(device, 'getvar:version')['okay']}
     if table:
@@ -35,19 +37,17 @@ def inspect(device, table=False):
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--partitions', action='store_true', help='Initialize eMMC and query the table after identity matches')
-    parser.add_argument('--libusb', type=Path, help='Explicit system libusb path if automatic discovery fails')
-    args = parser.parse_args()
+@contextmanager
+def connect(libusb=None):
+    """只连接唯一匹配接口；由调用者明确选择查询或读取动作。"""
     import usb.core
     import usb.util
     import usb.backend.libusb1
-    if args.libusb and not args.libusb.is_file():
-        parser.error('--libusb must name an existing system library')
-    backend = usb.backend.libusb1.get_backend(find_library=(lambda _: str(args.libusb.resolve())) if args.libusb else None)
+    if libusb and not libusb.is_file():
+        raise ValueError('USB库参数必须指向实际存在的系统库')
+    backend = usb.backend.libusb1.get_backend(find_library=(lambda _: str(libusb.resolve())) if libusb else None)
     if backend is None:
-        raise RuntimeError('System libusb missing; see docs/FASTBOOT.md')
+        raise RuntimeError('System libusb missing; see 文档/进入Fastboot.md')
     devices = list(usb.core.find(find_all=True, idVendor=0x18D1, idProduct=0x4EE0, backend=backend))
     if len(devices) != 1:
         raise RuntimeError(f'Expected exactly one RAM fastboot device, found {len(devices)}')
@@ -67,12 +67,21 @@ def main():
             raise ValueError('Expected bulk endpoints missing')
         usb.util.claim_interface(device, 0)
         claimed = True
-        print(json.dumps(inspect(device, args.partitions), ensure_ascii=False, indent=2))
+        yield device
     finally:
         if claimed:
             usb.util.release_interface(device, 0)
         usb.util.dispose_resources(device)
 
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--分区表','--partitions',dest='partitions',action='store_true',help='身份匹配后初始化eMMC并查表')
+    parser.add_argument('--USB库','--libusb',dest='libusb',type=Path,help='自动发现失败时指定系统libusb')
+    parser.add_argument('--模式',dest='mode',choices=['只读','原始读写'],default='只读')
+    args=parser.parse_args()
+    with connect(args.libusb) as device:
+        print(json.dumps(inspect(device,args.partitions,args.mode),ensure_ascii=False,indent=2))
 
 if __name__ == '__main__':
     main()

@@ -1,54 +1,68 @@
 # Sony A6700 Powerful
 
-Sony A6700 / ILCE-6700 的独立社区项目，逐步公开硬件引导、功能管理及恢复方面的基础原理与自有代码。首批发布聚焦 **Pico → BootROM 串行加载 → RAM Fastboot** 路线。
+面向 Sony A6700（ILCE-6700）的中文社区项目。本次公开**基础原理、Pico 板端注入源码、进入 Fastboot 的操作步骤，以及原始扇区备份和刷写通路**，让使用者可以从代码与接线开始复现。
 
-Independent community project for the Sony A6700. This first publication documents the tested Pico boot path and provides host-side code and local build adapters. Only A6700 firmware 2.00 has been tested; this is an early developer release.
+当前硬件证据来自一台 **A6700、2.00 固件、RP2040 Pico**。这是社区维护方案；接线或镜像错误可能损坏设备，可能影响保修／维修支持。新整理的主机实现未在本轮重新上机；原始读写实验版尚未完成实机写入及恢复验收。
 
-**仅在一台 A6700、2.00 固件与 RP2040 Pico 接线上验证过硬件路线。** 进入 Fastboot 是临时 RAM 引导，不会自动解锁功能，也不是 Sony 官方恢复模式。接线、时序或载荷错误可能造成设备故障，相关改动也可能影响保修或维修支持。完整备份、全盘恢复和可直接分发的救砖包尚未完成验证。
+## 从这里开始
 
-## 首批内容
-
-| 内容 | 入口 |
+| 你要做什么 | 入口 |
 |---|---|
-| BootROM、Pico 与 RAM Fastboot 的关系 | [基础原理](docs/PRINCIPLES.md) |
-| 材料、接线、上电与换线顺序 | [接线与操作](docs/WIRING.md) |
-| 构建、注入命令、身份与分区表查询 | [Fastboot 操作](docs/FASTBOOT.md) |
-| 自有代码、上游依赖、哈希与许可边界 | [来源与许可](docs/PROVENANCE.md) |
-| 哪些是实机记录，哪些只是本轮离线测试 | [验证状态](docs/VALIDATION.md) |
-| AI 分析和协作提交 | [AGENTS.md](AGENTS.md)、[CONTRIBUTING.md](CONTRIBUTING.md) |
+| 理解 BootROM、Pico 与 RAM Fastboot | [基础原理](文档/基础原理.md) |
+| 准备材料、接线、冷启动与换线 | [接线与操作](文档/接线与操作.md) |
+| 编译 Pico、构建相机引导、实际注入 | [进入 Fastboot](文档/进入Fastboot.md) |
+| 原始扇区备份、双读校验、镜像刷写 | [备份与刷写](文档/备份与刷写.md) |
+| 直接查看 Pico 板端源码与命令释义 | [Pico 注入源码说明](硬件/Pico注入/源码说明.md) |
+| 核对来源、许可、隐私与验证范围 | [来源与许可](文档/来源与许可.md)、[验证记录](文档/验证记录.md) |
+| 使用 AI 分析代码／提交改进 | [AGENTS.md](AGENTS.md)、[贡献指南](贡献指南.md) |
 
-本批包含记录编码器、固定载荷注入主机、Pico v2 本地源码适配器、AP-only 只读 RAM 程序构建适配器，以及身份／分区表查询客户端。没有功能刷写、固件、BootROM 镜像、个人备份、机身密钥或第三方预编译程序。
-
-## 快速开始
-
-只检查代码，不需要相机或第三方依赖：
+## 中文入口
 
 ```sh
-python3 -m unittest discover -s tests -v
-python3 -m a6700_boot.enter --help
+# 无需相机或第三方依赖
+python3 -m unittest discover -s 测试 -v
+python3 脚本/进入Fastboot.py --help
+
+# Pico 源码已在仓库中，无需另外取上游才能准备 sketch
+python3 脚本/准备Pico源码.py
 ```
 
-要复现硬件流程，先完整阅读[接线](docs/WIRING.md)和[构建／注入步骤](docs/FASTBOOT.md)。准备好本地构建的、哈希匹配的只读 RAM 载荷后：
+按[进入 Fastboot](文档/进入Fastboot.md)完成构建后：
 
 ```sh
-# 默认仅离线验证，不打开串口或 USB
-python3 -m a6700_boot.enter --payload build/read/fastboot-read.bin
+# 默认仅离线检查载荷，不打开串口／USB
+python3 脚本/进入Fastboot.py --载荷 构建产物/只读/相机只读引导.bin
 
-# 只检查 Pico 固件版本；端口须替换为自己设备的实际端口
-python3 -m a6700_boot.enter --ping --port /dev/cu.usbmodemXXXX
+# 仅检查 Pico 固件版本；串口须换成自己的实际端口
+python3 脚本/进入Fastboot.py --检查Pico --串口 /dev/cu.usbmodemXXXX
 
-# 冷启动注入：先阅读接线页，运行后按提示操作
-python3 -m a6700_boot.enter --payload build/read/fastboot-read.bin \
-  --port /dev/cu.usbmodemXXXX --arm
+# 先读接线页，测试板先离开相机，运行后按提示冷启动
+python3 脚本/进入Fastboot.py --载荷 构建产物/只读/相机只读引导.bin \
+  --串口 /dev/cu.usbmodemXXXX --开始注入
 
-# 完成换线后，查询固定 RAM 程序身份；匹配后才初始化 eMMC 并查表
-python3 -m a6700_boot.inspect --partitions
+# 记录发送完成后：先拔整个测试板，再移数据线到相机
+python3 脚本/查询Fastboot.py --分区表
+
+# 示例：双读核对引导区前4MiB；这不是整个物理 eMMC 的备份
+python3 脚本/备份扇区.py --目标 nflashaB0 --扇区数 0x2000 \
+  --输出 备份/引导区0-前4MiB.raw --双读校验
 ```
 
-完整发送通常为 **45 条记录**。必须等程序提示换线；黑屏、闪灯或 Pico 的 ACK 都不能单独证明相机已运行 Fastboot。成功标准是后续 USB 身份匹配并查询到分区表。
+Pico ACK 只说明发送完成；**Fastboot 身份匹配和分区表查询成功**才算相机端软件检查通过。已验证只读载荷为 45 条记录；原始读写实验载荷为 59 条，不能混用哈希和身份。
 
-## 许可与后续
+## 两种相机引导
 
-本仓库自有代码采用 **GPL-3.0-only**，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。固定版本的上游工程没有附许可证；因此本仓库只提供引用和自有适配脚本，不转载其源码／UF2／RAM 二进制，也不宣称 GPL 覆盖上游内容。详见[来源说明](docs/PROVENANCE.md)。
+| 模式 | 能做什么 | 当前证据 |
+|---|---|---|
+| 只读（默认） | 身份／分区表、原始区间备份 | 与历史实机载荷逐字节一致；主机已通过模拟测试 |
+| 原始读写（显式选择） | 上述读取，加 `download`／`flash` 原始镜像 | 本轮构建及分发限制测试通过；尚未进行实机刷写验收 |
 
-后续会在同一项目逐步整理整套功能解锁／关闭、普通 USB 管理和桌面应用。当前尚未发布这些模块；完整备份／恢复继续留待后续。无需为使用本批代码购买逻辑分析仪，也无需全盘备份才能运行离线测试。
+刷写使用前请完整阅读[镜像格式与命令](文档/备份与刷写.md)。原始读写版只处理 `nflasha`、`nflashaB0`、`nflashaB1` 原始数据，不包含加解密密钥，不能将 Sony 升级包或解密后的逻辑分区直接刷入。完整备份管理、自动恢复和已验证的救砖流程不作为本批已完成能力。
+
+## 目录与许可
+
+`文档/` 是操作与原理，`硬件/` 是 Pico 源码，`核心/` 是协议与主机实现，`脚本/` 是中文入口和构建工具，`测试/` 是无设备测试。保留 `README.md`、`AGENTS.md`、`LICENSE`、`.github` 等自动识别名称；Arduino sketch 的 `pico_boot.ino` 与 PIO 文件名保留工具兼容形式，其余主要入口使用中文。
+
+自有代码采用 **GPL-3.0-only**。Pico 源码基于明确标注的上游提交，按原来源披露；上游未声明许可证的部分不冒称已转为 GPL，见[来源说明](文档/来源与许可.md)。仓库不含相机固件、BootROM、私人备份、校准数据、照片、机身唯一信息或密钥，也不分发含密钥的历史 RAM 二进制。
+
+后续在本仓库继续公开整套功能解锁／关闭、普通 USB 管理与桌面应用。

@@ -4,10 +4,10 @@ import struct
 import tempfile
 import unittest
 
-from a6700_boot.enter import transmit
-from a6700_boot.inspect import inspect, query
-from a6700_boot.pico import Pico
-from a6700_boot.records import LOAD, UNLOCK, boot_records, decode, encode, verified_payload
+from 核心.注入入口 import transmit
+from 核心.设备查询 import inspect, query
+from 核心.Pico通信 import Pico
+from 核心.记录协议 import LOAD, UNLOCK, boot_records, decode, encode, verified_payload
 
 
 class BootTests(unittest.TestCase):

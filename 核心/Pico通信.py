@@ -1,7 +1,7 @@
-"""Small synchronous Pico packet client. No reset/UART/arbitrary command API."""
+"""Pico同步数据包接口；仅实现版本、载波、记录、关闭上拉和电平采样。"""
 import struct
 
-from .records import PICO_VERSION
+from .记录协议 import PICO_VERSION
 
 
 class Pico:

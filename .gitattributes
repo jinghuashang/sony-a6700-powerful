@@ -1,0 +1,2 @@
+# PIO生成头保持历史字节及哈希，允许原文件末尾的空白行。
+硬件/Pico注入/pico_boot/serialboot.pio.h whitespace=-blank-at-eof

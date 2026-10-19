@@ -1,9 +1,6 @@
-"""BootROM record format, independently encoded from documented protocol facts.
-
-The unlock word is a model-family protocol constant, not a per-body secret.
-This module never opens a port or accesses camera storage.
-"""
+"""BootROM记录长度、地址与CRC编码；协议常量不含机身唯一数据，无设备访问。"""
 import hashlib
+import json
 from pathlib import Path
 import struct
 import zlib
@@ -50,8 +47,16 @@ def boot_records(payload):
     return records
 
 
-def verified_payload(path):
+def payload_catalog():
+    return json.loads(Path(__file__).with_name('载荷清单.json').read_text(encoding='utf-8'))
+
+
+def verified_payload(path, mode='只读'):
+    catalog = payload_catalog()
+    if mode not in catalog:
+        raise ValueError('未知引导模式')
+    expected = catalog[mode]
     payload = Path(path).read_bytes()
-    if len(payload) != PAYLOAD_SIZE or hashlib.sha256(payload).hexdigest() != PAYLOAD_SHA256:
-        raise ValueError('Payload differs from the verified AP-only read build; transmission blocked')
+    if len(payload) != expected['字节数'] or hashlib.sha256(payload).hexdigest() != expected['sha256']:
+        raise ValueError('载荷与所选模式不符，已阻止发送（blocked）；不能混用只读版和原始读写版')
     return payload

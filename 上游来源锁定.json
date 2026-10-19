@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/DavidBuchanan314/ILCE-7M4-RE",
   "commit": "2328d18ce640e6c8cd9341efcf0043ce9042a135",
-  "license_status": "No LICENSE file found in the pinned source tree; no upstream code or binary is redistributed here.",
+  "license_status": "固定提交未附LICENSE；Pico派生源码按用户要求披露来源，不将其上游部分重新标记为GPL。RAM上游源码仍由使用者单独取得。",
   "files": {
     "payloads/fastboot/fastboot.ld": "ea0e88b7b118931a56769ea070f7c89c65b1426357feaa46c0cae494d369fbed",
     "payloads/fastboot/include/cetus.h": "c7ba299c2d9c5071958647fe38e787a0c57200b75d6ffb30333f9a3d3de9c690",

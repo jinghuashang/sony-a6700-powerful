@@ -1,5 +1,8 @@
 build/
 vendor/
+构建产物/
+外部源码/
+备份/
 .venv/
 __pycache__/
 *.py[cod]

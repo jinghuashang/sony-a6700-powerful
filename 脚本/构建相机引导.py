@@ -1,22 +1,23 @@
-"""Build an AP-only read-command fastboot candidate; no hardware access."""
+"""本地构建相机 RAM 引导：默认历史只读版，可显式构建原始读写实验版。"""
 import hashlib,json,re,shutil,subprocess
 from pathlib import Path
 import argparse,sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from upstream import checked_upstream
+from 上游校验 import checked_upstream
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--upstream',type=Path,required=True)
-parser.add_argument('--output',type=Path,default=Path('build/read'))
+parser.add_argument('--上游目录','--upstream',dest='upstream',type=Path,required=True)
+parser.add_argument('--输出目录','--output',dest='output',type=Path)
+parser.add_argument('--模式',dest='mode',choices=['只读','原始读写'],default='只读')
 parser.add_argument('--cc',default=shutil.which('clang'))
 parser.add_argument('--ld',default=shutil.which('aarch64-elf-ld') or shutil.which('aarch64-linux-gnu-ld'))
 parser.add_argument('--objcopy',default=shutil.which('aarch64-elf-objcopy') or shutil.which('aarch64-linux-gnu-objcopy'))
 parser.add_argument('--nm',default=shutil.which('aarch64-elf-nm') or shutil.which('aarch64-linux-gnu-nm'))
 args=parser.parse_args()
 if not all((args.cc,args.ld,args.objcopy,args.nm)):
-    parser.error('Need clang and AArch64 GNU binutils (ld, objcopy, nm) on PATH')
+    parser.error('需要PATH中的clang和AArch64 GNU binutils（ld、objcopy、nm），也可通过参数指定')
 REF=checked_upstream(args.upstream)/'payloads/fastboot'
-OUT=args.output.resolve(); SRC=OUT/'derived'
-if OUT.exists(): parser.error('Output exists; use a new directory')
+OUT=(args.output or Path('构建产物')/args.mode).resolve(); SRC=OUT/'生成源码'
+if OUT.exists(): parser.error('输出目录已存在，请使用新目录')
 SRC.mkdir(parents=True)
 
 def replace_fn(text,name,new):
@@ -60,6 +61,10 @@ text=replace_fn(text,'fastboot_command','''static void fastboot_command(const ch
 }''')
 text=text.replace('fb_okay("ILCE-7M4");','fb_okay("A6700-AP-read-candidate");')
 text=text.replace('fb_okay("ILCE7M4-fastboot");','fb_okay("A6700-RAM-fastboot");')
+if args.mode=='原始读写':
+    from 原始读写适配 import adapt, NO_CRYPTO
+    text=adapt(text,replace_fn)
+    (SRC/'无密钥加解密占位.c').write_text(NO_CRYPTO)
 (SRC/'fastboot.c').write_text(text)
 (SRC/'main.c').write_text('''#include "io.h"
 #include "led.h"
@@ -113,28 +118,38 @@ int cetus_read(u32 a,u8 *b,u32 n,u32 w) {(void)a;(void)b;(void)n;(void)w;return 
 int cetus_nor_read(u32 a,u8 *b,u32 n) {(void)a;(void)b;(void)n;return CETUS_E_ARG;}
 ''')
 sources=[SRC/'main.c',SRC/'fastboot.c',SRC/'no_cp.c',SRC/'usb.c']
-sources += [REF/'src'/n for n in ('start.S','delay.c','led.c','usb_phy.c','dwc3.c','sdhci.c','spacc.c')]
+sources += [REF/'src'/n for n in ('start.S','delay.c','led.c','usb_phy.c','dwc3.c','sdhci.c')]
+sources += [REF/'src/spacc.c' if args.mode=='只读' else SRC/'无密钥加解密占位.c']
 flags=['-target','aarch64-none-elf','-march=armv8-a','-mgeneral-regs-only','-mstrict-align','-ffreestanding','-fno-builtin','-fno-stack-protector','-fno-pic','-fno-common','-ffunction-sections','-fdata-sections','-O2','-g','-I'+str(REF/'include')]
 objects=[]
 for source in sources:
     obj=OUT/(source.stem+'.o');objects.append(obj)
     subprocess.run([args.cc,*flags,'-c',str(source),'-o',str(obj)],check=True)
-elf=OUT/'fastboot-read.elf'
+stem='相机只读引导' if args.mode=='只读' else '相机原始读写引导'
+elf=OUT/(stem+'.elf')
 subprocess.run([args.ld,'-T',str(REF/'fastboot.ld'),'--gc-sections','--build-id=none','-Map='+str(OUT/'fastboot-read.map'),'-o',str(elf),*map(str,objects)],check=True)
-binary=OUT/'fastboot-read.bin'
+binary=OUT/(stem+'.bin')
 subprocess.run([args.objcopy,'-O','binary',str(elf),str(binary)],check=True)
 symbols=subprocess.check_output([args.nm,'--defined-only',str(elf)],text=True)
 (OUT/'symbols.txt').write_text(symbols)
-for name in ('mmc_write_blocks','cetus_bring_up','cmd_flash','cmd_download','cmd_exec','cmd_poke','system_reset'):
-    assert not re.search(r'\b'+name+r'$',symbols,re.M),'Unexpected linked symbol: '+name
+for name in (('mmc_write_blocks','cmd_flash','cmd_download') if args.mode=='只读' else ()) + ('cetus_bring_up','cmd_exec','cmd_poke','system_reset'):
+    if re.search(r'\b'+name+r'$',symbols,re.M):
+        raise RuntimeError('不应链接的符号：'+name)
+if args.mode=='原始读写':
+    if not re.search(r'\bmmc_write_blocks$',symbols,re.M):
+        raise RuntimeError('原始读写版缺少底层写入符号')
+    if re.search(r'\bpart_key$',symbols,re.M):
+        raise RuntimeError('原始读写版意外包含密钥表')
 r={'upstream_commit':'2328d18ce640e6c8cd9341efcf0043ce9042a135',
-   'variant':'AP-only read, GPIO17 bit16 HIGH', 'bytes':binary.stat().st_size,
+   'variant':'AP-only '+args.mode+', GPIO17 bit16 HIGH', 'bytes':binary.stat().st_size,
    'sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),
-   'load_entry':'0xfe020000','storage_write_symbols_absent':True,
+   'load_entry':'0xfe020000','storage_write_symbols_absent':args.mode=='只读',
+   'mode':args.mode,'real_device_write_verified':False,
    'build_is_not_hardware_validation':True}
 if r['bytes']>0x10000: raise RuntimeError('Payload exceeds fixed RAM window')
 (OUT/'manifest.json').write_text(json.dumps(r,indent=2)+'\n')
 print(json.dumps(r,indent=2))
-expected='8d8b968940a868116bb3cd77c0f040795c1aae28d2a5d96d119d992498473fcb'
+catalog=json.loads((Path(__file__).resolve().parents[1]/'核心/载荷清单.json').read_text())
+expected=catalog[args.mode]['sha256']
 if r['sha256'] != expected:
-    raise SystemExit('Build differs from verified payload (compiler versions may differ). Injection remains blocked; do not override the hash.')
+    raise SystemExit('构建结果与载荷清单不同，可能是工具链差异；注入仍被阻止，不要绕过哈希。')
