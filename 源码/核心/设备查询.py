@@ -47,7 +47,7 @@ def connect(libusb=None):
         raise ValueError('USB库参数必须指向实际存在的系统库')
     backend = usb.backend.libusb1.get_backend(find_library=(lambda _: str(libusb.resolve())) if libusb else None)
     if backend is None:
-        raise RuntimeError('System libusb missing; see 文档/进入Fastboot.md')
+        raise RuntimeError('System libusb missing; see 操作手册.md')
     devices = list(usb.core.find(find_all=True, idVendor=0x18D1, idProduct=0x4EE0, backend=backend))
     if len(devices) != 1:
         raise RuntimeError(f'Expected exactly one RAM fastboot device, found {len(devices)}')
@@ -78,10 +78,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--分区表','--partitions',dest='partitions',action='store_true',help='身份匹配后初始化eMMC并查表')
     parser.add_argument('--USB库','--libusb',dest='libusb',type=Path,help='自动发现失败时指定系统libusb')
-    parser.add_argument('--模式',dest='mode',choices=['只读','原始读写'],default='只读')
     args=parser.parse_args()
     with connect(args.libusb) as device:
-        print(json.dumps(inspect(device,args.partitions,args.mode),ensure_ascii=False,indent=2))
+        print(json.dumps(inspect(device,args.partitions),ensure_ascii=False,indent=2))
 
 if __name__ == '__main__':
     main()

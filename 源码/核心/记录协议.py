@@ -58,5 +58,5 @@ def verified_payload(path, mode='只读'):
     expected = catalog[mode]
     payload = Path(path).read_bytes()
     if len(payload) != expected['字节数'] or hashlib.sha256(payload).hexdigest() != expected['sha256']:
-        raise ValueError('载荷与所选模式不符，已阻止发送（blocked）；不能混用只读版和原始读写版')
+        raise ValueError('载荷哈希或长度不符，已阻止发送（blocked）')
     return payload

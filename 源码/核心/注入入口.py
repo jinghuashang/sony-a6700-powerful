@@ -1,4 +1,4 @@
-"""相机RAM注入入口；默认只离线校验，按模式选择固定载荷。"""
+"""相机RAM注入入口；默认只离线校验，仅接受固定只读载荷。"""
 import argparse
 import time
 
@@ -44,7 +44,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--载荷','--payload',dest='payload', help='本地构建且哈希匹配的相机RAM引导程序')
     parser.add_argument('--串口','--port',dest='port', help='Pico实际串口，不自动选择其他设备')
-    parser.add_argument('--模式', dest='mode', choices=['只读','原始读写'], default='只读')
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--检查Pico','--ping',dest='ping', action='store_true', help='仅核对Pico版本，不启动载波')
     modes.add_argument('--开始注入','--arm',dest='arm', action='store_true', help='低基线和冷启动检测通过后发送固定RAM程序')
@@ -54,16 +53,14 @@ def main():
         parser.error('等待秒数必须为1..3600')
     if not args.ping and not args.payload:
         parser.error('校验和注入需要--载荷；仅检查Pico时只需--串口')
-    records = boot_records(verified_payload(args.payload, args.mode)) if args.payload else None
+    records = boot_records(verified_payload(args.payload)) if args.payload else None
     if not args.ping and not args.arm:
         print(f'离线校验通过：共{len(records)}条记录；没有访问串口或USB。')
         return
     if not args.port:
         parser.error('检查Pico和开始注入都需要明确指定--串口')
     if args.arm:
-        if args.mode == '原始读写':
-            print('原始读写实验版：含flash命令，尚未完成实机写入与恢复验收；只支持原始密文镜像。')
-        print('请先读文档/接线与操作.md。相机OFF、取电池至少5秒、测试板先不要插相机。')
+        print('请先读硬件说明.md。相机OFF、取电池至少5秒、测试板先不要插相机。')
         input('保持Pico数据线和USB-A供电。回车启动载波，看到ARMED后才给相机上电：')
     import serial  # Optional dependency, imported only for explicit device access.
     with serial.Serial(args.port, 115200, timeout=5, write_timeout=5, exclusive=True) as port:

@@ -65,14 +65,13 @@ def main():
     parser.add_argument('--输出',type=Path,required=True)
     parser.add_argument('--双读校验',action='store_true',help='再读一次，逐字节一致后才保存')
     parser.add_argument('--USB库',type=Path)
-    parser.add_argument('--模式',choices=['只读','原始读写'],default='只读')
     args=parser.parse_args()
     if args.输出.exists():
         parser.error('输出文件已存在，不能覆盖')
     if not 1 <= args.扇区数 <= 32768 or not 0 <= args.起始扇区 <= 0xffffffff:
         parser.error('每次限1..32768个扇区，起始扇区必须为非负32位数')
     with connect(args.USB库) as device:
-        inspect(device,mode=args.模式)
+        inspect(device)
         data=read_region(device,args.目标,args.起始扇区,args.扇区数)
         if args.双读校验 and data != read_region(device,args.目标,args.起始扇区,args.扇区数):
             raise ValueError('两次独立读取不一致，未保存为有效备份')

@@ -11,6 +11,9 @@ jobs:
     strategy:
       matrix:
         python: ['3.10', '3.13']
+    defaults:
+      run:
+        working-directory: 源码
     steps:
       - uses: actions/checkout@v7
         with:
@@ -19,4 +22,4 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m unittest discover -s 测试 -v
-      - run: python -m compileall -q 核心 脚本 测试
+      - run: python -m compileall -q -x '/\._' 核心 脚本 测试
