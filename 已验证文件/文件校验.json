@@ -1,0 +1,26 @@
+{
+  "说明": "本地已跑通文件归集，未重新编译。Pico仅替换一处只读错误信息中的构建机路径，程序指令未改动。",
+  "Pico": {
+    "文件": "Pico-v2.uf2",
+    "字节数": 153600,
+    "sha256": "e7b8eaa06b0d7c160faf2e25926df1d65f363c1c1b66a18a319e17c8901d020a",
+    "原文件sha256": "8a8bb5c1c962b3a174c7f7715d24e0620b9c20367e75538bda27645c19115d3e",
+    "版本": "a6700_pio_od 2",
+    "Arduino-Pico": "6.3.0",
+    "脱敏范围": ".rodata中的dma.h构建路径，定长替换",
+    "程序指令未变": true,
+    "脱敏副本重新上机": false
+  },
+  "相机RAM": {
+    "文件": "相机只读引导.bin",
+    "字节数": 20992,
+    "sha256": "8d8b968940a868116bb3cd77c0f040795c1aae28d2a5d96d119d992498473fcb",
+    "与本地已用文件逐字节一致": true,
+    "记录数": 45
+  },
+  "Pico源码": {
+    "serialboot.pio": "951422c52af2dd6f2431fc65cf0df9e9b2102f88b60924d6fb172ad2307c3d22",
+    "pico_boot.ino": "acc13bfc67e78534ffcb1ec5164a1e45b43ce572a51f71d89b9bb489cee2cfd7",
+    "serialboot.pio.h": "20195e2bec487489df27dd9adb594ea1ce17f4f3d7dc2eac819d0fb7d9c25278"
+  }
+}
