@@ -11,3 +11,11 @@ https://github.com/DavidBuchanan314/ILCE-7M4-RE
 来源、适配及输入哈希见 源码/硬件/Pico注入/源码说明.md、源码/上游来源锁定.json。
 相机 RAM 上游工程由使用者单独取得，本仓库不分发其源码全集。
 已验证文件/ 提供本地已用的固定引导文件，来源、脱敏范围与所用运行库许可见该目录。
+
+Windows 安装依赖 libusb-package 1.0.30.0，其 Python 代码采用 Apache-2.0：
+https://pypi.org/project/libusb-package/1.0.30.0/
+https://github.com/pyocd/libusb-package
+该依赖提供的 libusb 采用 LGPL-2.1-or-later，官方来源与许可：
+https://github.com/libusb/libusb
+https://github.com/libusb/libusb/blob/v1.0.30/COPYING
+Windows DLL 由安装上述依赖获取，本仓库不新增分发该二进制。

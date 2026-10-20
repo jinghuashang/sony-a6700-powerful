@@ -1,0 +1,6 @@
+# 固定 Pico 历史输入的 LF 字节，避免 Windows 检出时改变 SHA-256。
+源码/硬件/Pico注入/pico_boot/* text eol=lf
+
+# 固定引导文件按二进制保存，不转换换行。
+*.uf2 -text
+*.bin -text

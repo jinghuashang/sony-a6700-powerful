@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def checked_upstream(path):
     path = path.resolve()
-    pin = json.loads((ROOT / '上游来源锁定.json').read_text())
-    commit = subprocess.check_output(['git', '-C', str(path), 'rev-parse', 'HEAD'], text=True).strip()
+    pin = json.loads((ROOT / '上游来源锁定.json').read_text(encoding='utf-8'))
+    commit = subprocess.check_output(['git', '-C', str(path), 'rev-parse', 'HEAD'], text=True, encoding='utf-8').strip()
     if commit != pin['commit']:
         raise ValueError('上游HEAD与固定提交不符')
     for name, expected in pin['files'].items():
