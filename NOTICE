@@ -1,0 +1,13 @@
+Sony A6700 Powerful
+Copyright (C) 2026 Sony A6700 Powerful 贡献者
+
+自有代码与文档采用 GPL-3.0-only，条款及无担保声明见 LICENSE。
+这是独立社区项目，与 Sony 官方无关。
+
+源码/硬件/Pico注入/pico_boot/ 源于 DavidBuchanan314/ILCE-7M4-RE：
+https://github.com/DavidBuchanan314/ILCE-7M4-RE
+固定提交 2328d18ce640e6c8cd9341efcf0043ce9042a135，含本项目适配。
+该上游提交未附许可证；GPL 声明不将其原始部分重新许可。
+来源、适配及输入哈希见 源码/硬件/Pico注入/源码说明.md、源码/上游来源锁定.json。
+相机 RAM 上游工程由使用者单独取得，本仓库不分发其源码全集。
+已验证文件/ 提供本地已用的固定引导文件，来源、脱敏范围与所用运行库许可见该目录。
