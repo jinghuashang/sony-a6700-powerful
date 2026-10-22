@@ -1,5 +1,3 @@
-<img width="1100" height="798" alt="1792660874815000_F84B856F-BAF4-4711-8F70-52066802C66B" src="https://github.com/user-attachments/assets/adb0c64a-b923-44f6-81f0-8ed82e9ece0e" /># Sony A6700 Powerful
-
 个人对 Sony A6700 固件与 USB 维护协议的学习记录，分享已走通的教程和 **Powerful6700** 实验工具，与 Sony 官方无关。
 
 目前仅针对 **A6700、2.00 固件**。操作可能影响保修，存在无法启动及数据丢失风险；请先阅读[声明与使用边界](声明与使用边界.md)。
@@ -13,7 +11,7 @@
 | 从源码执行功能解锁／关闭 | [USB 功能刷写教程](USB功能刷写教程.md) |
 | 用 Pico 进入 Fastboot 并读取备份 | [硬件说明](硬件说明.md) · [操作手册](操作手册.md) |
 
-**Powerful6700 0.1.0.dev33** 为扩大样本测试版，安装包仅支持 Apple Silicon、macOS 13+，内置运行环境，保留演示模式。开放 FTP、关机快门帘、灵活曝光和电子快门声音，可逐项解锁／关闭。位移多帧合成、动态增强防抖暂禁用；完整备份与恢复尚未实现。
+**Powerful6700 0.1.0.dev33** 为扩大样本测试版，安装包仅支持 Apple Silicon、macOS 13+，内置运行环境，保留演示模式。开放 FTP、关机快门帘、灵活曝光和电子快门声音，可逐项解锁／关闭。位移多帧合成、动态增强防抖暂禁用。
 
 <img width="1100" height="798" alt="1792660874815000_F84B856F-BAF4-4711-8F70-52066802C66B" src="https://github.com/user-attachments/assets/4ebb305d-47a4-4b22-a701-74a275fe5532" />
 
