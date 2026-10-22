@@ -7,8 +7,8 @@
 到 [GitHub Releases](https://github.com/xyzhangxin/sony-a6700-powerful/releases) 下载同一版本的四份材料：
 
 - `Powerful6700-0.1.0.dev33-macOS-arm64.zip`：应用。
-- `Powerful6700-0.1.0.dev33-公开源码.zip`：与应用对应的完整源码。
-- `使用说明.md`：该版本的固定说明。
+- `Powerful6700-0.1.0.dev33-source.zip`：与应用对应的完整源码。
+- `README-zh.md`：该版本的固定说明。
 - `SHA256SUMS.txt`：上述三个文件的校验值。
 
 放在同一文件夹，在该文件夹运行 `shasum -a 256 -c SHA256SUMS.txt`。全部显示 OK 后解压应用，移入“应用程序”。无需另外安装 Python、Homebrew 或 USB 驱动。
