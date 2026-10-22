@@ -1,4 +1,4 @@
-# Sony A6700 Powerful
+<img width="1100" height="798" alt="1792660874815000_F84B856F-BAF4-4711-8F70-52066802C66B" src="https://github.com/user-attachments/assets/adb0c64a-b923-44f6-81f0-8ed82e9ece0e" /># Sony A6700 Powerful
 
 个人对 Sony A6700 固件与 USB 维护协议的学习记录，分享已走通的教程和 **Powerful6700** 实验工具，与 Sony 官方无关。
 
@@ -15,7 +15,8 @@
 
 **Powerful6700 0.1.0.dev33** 为扩大样本测试版，安装包仅支持 Apple Silicon、macOS 13+，内置运行环境，保留演示模式。开放 FTP、关机快门帘、灵活曝光和电子快门声音，可逐项解锁／关闭。位移多帧合成、动态增强防抖暂禁用；完整备份与恢复尚未实现。
 
-历史 dev25 安装包已由维护者实机验收；dev33 已完成一次实机连接预检，未做本版新的写入／关闭及多机身验收，不称稳定版。软件路线只修改清单管理的功能字段，不提供任意固件镜像刷入；Pico 路线当前提供引导及已知区间备份。
+<img width="1100" height="798" alt="1792660874815000_F84B856F-BAF4-4711-8F70-52066802C66B" src="https://github.com/user-attachments/assets/4ebb305d-47a4-4b22-a701-74a275fe5532" />
+
 
 ## 开发计划与进展
 
