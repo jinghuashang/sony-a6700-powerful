@@ -11,3 +11,12 @@ https://github.com/DavidBuchanan314/ILCE-7M4-RE
 来源、适配及输入哈希见 源码/硬件/Pico注入/源码说明.md、源码/上游来源锁定.json。
 相机 RAM 上游工程由使用者单独取得，本仓库不分发其源码全集。
 已验证文件/ 提供本地已用的固定引导文件，来源、脱敏范围与所用运行库许可见该目录。
+
+应用/ 为 Powerful6700 对应源码：自有部分 GPL-3.0-only。
+USB 参考为 ma1co/Sony-PMCA-RE，固定提交
+ a82f5baaa8e9c3d9f28f94699e860fb2e48cc8e0，MIT；兼容 SHA-1
+来源 ajalt/python-sha1，MIT。原许可均保留。
+应用第三方与内置 CPython、PyUSB、libusb 归属见 应用/THIRD_PARTY_NOTICES.md。
+内置运行环境版本／哈希见 应用/desktop/runtime-*.json；安装包保留运行库许可
+及 libusb 对应源包。自编 ARM64 reader/writer 的源码与构建脚本随应用源码提供。
+不分发完整 Sony 固件、私人备份或上述已排除的历史原厂扇区数组。

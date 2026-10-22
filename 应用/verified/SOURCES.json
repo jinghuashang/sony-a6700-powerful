@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-19",
+  "scope": "collection-of-existing-verified-sources",
+  "camera_access_this_round": false,
+  "files": [
+    {
+      "source": "hardware/usb_service_research/usb_service_probe.py",
+      "path": "usb/usb_service_probe.py",
+      "source_sha256": "9d5405c4771afe94f97728866a2e79d587be19dcd4e478a647aac03db0e20f26",
+      "verification": "historical-device-authentication-and-payload-transfer",
+      "changes": [
+        "Resolve upstream reference modules from collected local directory",
+        "Rename misleading phase1 CLI to send-file and correct execution descriptions",
+        "Optional fixed GET_FILE(file_id=0) result retrieval using the documented existing command",
+        "Update macOS capture hint to the collected script"
+      ],
+      "collected_sha256": "aef166fb127792071ffa434c7d3830dbd9b3978bc33971c140d41668e6d0f1ba"
+    },
+    {
+      "source": "hardware/usb_service_research/packet_builder.py",
+      "path": "usb/packet_builder.py",
+      "source_sha256": "3b4ca107ef1d327578ae32ccdb07a3d9f2d8a050082ffd0574298aab4bd47d74",
+      "verification": "historical-device-wire-format",
+      "changes": [],
+      "collected_sha256": "3b4ca107ef1d327578ae32ccdb07a3d9f2d8a050082ffd0574298aab4bd47d74"
+    },
+    {
+      "source": "hardware/usb_service_research/mac_capture.m",
+      "path": "macos/mac_capture.m",
+      "source_sha256": "95e6214a1225a35194f5ff9fc66aede5190521faa533e18fd97f6e93289a02a7",
+      "verification": "historical-device-capture-on-macos",
+      "changes": [],
+      "collected_sha256": "95e6214a1225a35194f5ff9fc66aede5190521faa533e18fd97f6e93289a02a7"
+    },
+    {
+      "source": "sources/Sony-PMCA-RE/pmca/usb/constants.py",
+      "path": "usb/reference/sony_pmca/constants.py",
+      "source_sha256": "94bf081d3c1a51a60cf8fc214dce25a491413d4d786716460fde3fba832eb692",
+      "verification": "verbatim-upstream-reference",
+      "changes": [],
+      "collected_sha256": "94bf081d3c1a51a60cf8fc214dce25a491413d4d786716460fde3fba832eb692"
+    },
+    {
+      "source": "sources/Sony-PMCA-RE/pmca/usb/crypto.py",
+      "path": "usb/reference/sony_pmca/crypto.py",
+      "source_sha256": "74660a42235f7efac6f47f38e2151049647bd0bc61ed6eb0763538815b2b6886",
+      "verification": "verbatim-upstream-reference",
+      "changes": [],
+      "collected_sha256": "74660a42235f7efac6f47f38e2151049647bd0bc61ed6eb0763538815b2b6886"
+    },
+    {
+      "source": "sources/Sony-PMCA-RE/LICENSE.txt",
+      "path": "usb/reference/sony_pmca/LICENSE.txt",
+      "source_sha256": "a485f27d0b22eb7fd9b9419795695d0a1750ea32c961d11c1dd8ddade564dedf",
+      "verification": "upstream-MIT-license",
+      "changes": [],
+      "collected_sha256": "a485f27d0b22eb7fd9b9419795695d0a1750ea32c961d11c1dd8ddade564dedf"
+    },
+    {
+      "source": "research/usb-service-20261018/payload/proof_ctor.c",
+      "path": "payloads/proof_ctor.c",
+      "source_sha256": "9f03d848260df2dfda1cf8fb742e8d43564ff86fb6a2ea162c59e52a550327bf",
+      "verification": "historical-root-proof-or-fixed-sector-write-readback-revert",
+      "changes": [],
+      "collected_sha256": "9f03d848260df2dfda1cf8fb742e8d43564ff86fb6a2ea162c59e52a550327bf"
+    },
+    {
+      "path": "usb/reference/sony_pmca/LICENSE-python-sha1.txt",
+      "source_url": "https://raw.githubusercontent.com/ajalt/python-sha1/master/LICENSE.txt",
+      "collected_sha256": "4d1ff9370efb85b751e3fe1b5d376a512a5573d2b2dd75b151d03fdbefd89bcd",
+      "verification": "license-transcribed-from-upstream-text",
+      "changes": []
+    }
+  ],
+  "public_revision": "2026-10-21",
+  "excluded_history": [
+    {
+      "path": "payloads/plain_readonly.c",
+      "collected_sha256": "db6bcda589cb5ad3ce4fb15c1560f629d0f587730bf23b93e8a1e235f10dd5a6",
+      "reason": "Contains historical original firmware sector arrays; internal evidence only, not distributed"
+    },
+    {
+      "path": "payloads/plain_flasher.c",
+      "collected_sha256": "6f6cfecb9e80a105fd36bc4f428e3e776ae5729d9381c7f35392cfb1032068fa",
+      "reason": "Contains historical original firmware sector arrays; internal evidence only, not distributed"
+    },
+    {
+      "path": "payloads/plain_restore.c",
+      "collected_sha256": "17096fa7cec0afa2dfdf74938ae8c7f3d26365e1f97bcc870b59cf1c37dc0ca7",
+      "reason": "Contains historical original firmware sector arrays; internal evidence only, not distributed"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+.DS_Store
+._*
+.local-validation/
+backups/
+reports/
+*.bin
+*.raw
+*.so
+*.plain
+*.ext2
+*.o
+verified/macos/mac_capture
+
+.venv*/
+.cache/
+
+# 本机编译和测试产物
+/.swift-module-cache/
+/.test-venv/
+/main
