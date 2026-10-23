@@ -45,6 +45,18 @@ struct InspectSummary: Decodable {
 struct OperationResult: Decodable {
     let status: String; let title: String; let detail: String; let success: Bool; let error: String
     let backup_path: String?; let backup_sha256: String?; let backup_id: String?
+    let aftercare: Aftercare?; let cleanup_warning: String?
+}
+struct RestartStep: Decodable, Identifiable {
+    let id: String; let title: String; let detail: String
+}
+struct FeatureCheck: Decodable, Identifiable {
+    let id: String; let name: String; let path: String
+    let expected: String; let note: String; let outcome: String
+}
+struct Aftercare: Decodable {
+    let simulation: Bool; let restart_required: Bool
+    let steps: [RestartStep]; let features: [FeatureCheck]
 }
 struct Snapshot: Decodable {
     let revision: Int; let phase: String; let scenario: String; let scenarios: [ScenarioRow]
@@ -65,15 +77,20 @@ final class PreviewModel: ObservableObject {
     @Published var progress: [String] = []
     @Published var error = ""
     @Published private(set) var pendingAction: String?
-    var isBusy: Bool { pendingAction != nil || state?.busy == true }
+    @Published private(set) var serviceExited = false
+    @Published private(set) var serviceExitAction: String?
+    var isBusy: Bool { !serviceExited && (pendingAction != nil || state?.busy == true) }
+    var serviceWriteUncertain: Bool { physicalMode && ["unlock", "close", "restore"].contains(serviceExitAction ?? "") }
     private var process: Process?
     private var input: FileHandle?
+    private var outputHandle: FileHandle?
+    private var diagnosticsHandle: FileHandle?
     private var buffer = Data()
     private let reader = DispatchQueue(label: "a6700.preview.json")
-    private var physicalMode = false
+    private var physicalMode = true
     private var generation = UUID()
 
-    func start(physical: Bool = false) {
+    func start(physical: Bool = true) {
         do {
             physicalMode = physical
             let session = UUID()
@@ -83,6 +100,8 @@ final class PreviewModel: ObservableObject {
             progress = []
             error = ""
             pendingAction = nil
+            serviceExited = false
+            serviceExitAction = nil
             guard let resources = Bundle.main.resourceURL else { throw bridgeError("预览资源缺失。") }
             let config = try JSONSerialization.jsonObject(with: Data(contentsOf: resources.appendingPathComponent("runtime.json"))) as? [String: String]
             guard let configuredPython = config?["python"] else {
@@ -106,9 +125,16 @@ final class PreviewModel: ObservableObject {
             let source = Pipe(), output = Pipe(), diagnostics = Pipe()
             worker.standardInput = source; worker.standardOutput = output; worker.standardError = diagnostics
             input = source.fileHandleForWriting
-            output.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let outHandle = output.fileHandleForReading
+            let diagHandle = diagnostics.fileHandleForReading
+            outputHandle = outHandle
+            diagnosticsHandle = diagHandle
+            outHandle.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
-                guard !data.isEmpty else { return }
+                guard !data.isEmpty else {
+                    handle.readabilityHandler = nil
+                    return
+                }
                 self?.reader.async { [weak self] in
                     guard self?.generation == session else { return }
                     self?.read(data, session: session)
@@ -116,14 +142,18 @@ final class PreviewModel: ObservableObject {
             }
             // Drain stderr so a failed dependency cannot fill a pipe and freeze
             // the interface. Raw diagnostics/paths are not shown in user pages.
-            diagnostics.fileHandleForReading.readabilityHandler = { handle in _ = handle.availableData }
+            diagHandle.readabilityHandler = { handle in
+                if handle.availableData.isEmpty {
+                    handle.readabilityHandler = nil
+                }
+            }
             worker.terminationHandler = { [weak self] job in
-                guard job.terminationStatus != 0 else { return }
                 DispatchQueue.main.async {
-                    guard self?.generation == session else { return }
-                    self?.error = (self?.physicalMode ?? false)
-                        ? "真实设备服务已退出。请检查 USB 连接后重新打开应用。"
-                        : "模拟服务已退出。请关闭窗口后重新打开预览。"
+                    guard let self = self, self.generation == session else { return }
+                    self.serviceExitAction = self.pendingAction ?? (self.state?.busy == true ? self.state?.action : nil)
+                    self.serviceExited = true
+                    self.pendingAction = nil
+                    self.error = ""
                 }
             }
             try worker.run()
@@ -135,6 +165,11 @@ final class PreviewModel: ObservableObject {
         guard physical != physicalMode, !isBusy else { return }
         shutdown()
         start(physical: physical)
+    }
+    func restartService() {
+        guard serviceExited else { return }
+        shutdown()
+        start(physical: physicalMode) // Environment only; never replay an operation.
     }
     private func bridgeError(_ text: String) -> NSError {
         NSError(domain: "A6700Preview", code: 1, userInfo: [NSLocalizedDescriptionKey: text])
@@ -158,7 +193,7 @@ final class PreviewModel: ObservableObject {
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    guard self.generation == session else { return }
+                    guard self.generation == session, !self.serviceExited else { return }
                     if let current = self.state, snapshot.revision < current.revision { return }
                     let valid = self.physicalMode
                         ? !snapshot.simulation
@@ -192,6 +227,17 @@ final class PreviewModel: ObservableObject {
         }
     }
     func send(_ command: String, extra: [String: Any] = [:]) {
+        guard !serviceExited else {
+            error = "本地设备服务已停止，请先重新启动服务。"
+            return
+        }
+        if command == "restart_preparation" && physicalMode && !isBusy {
+            shutdown()
+            start(physical: true)
+            send("acknowledge", extra: ["value": true])
+            send("prepare")
+            return
+        }
         if ["inspect", "unlock", "close", "backup", "restore"].contains(command) {
             guard !isBusy else { return }
             pendingAction = command
@@ -212,6 +258,10 @@ final class PreviewModel: ObservableObject {
     }
     func shutdown() {
         generation = UUID()
+        outputHandle?.readabilityHandler = nil
+        outputHandle = nil
+        diagnosticsHandle?.readabilityHandler = nil
+        diagnosticsHandle = nil
         if let input = input, let process = process, process.isRunning {
             if let bytes = try? JSONSerialization.data(withJSONObject: ["command": "shutdown"]) {
                 try? input.write(contentsOf: bytes + Data([10]))

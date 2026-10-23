@@ -63,7 +63,7 @@ a6700-unlock device close --feature ftp
 ## 如何判断结果
 
 - `inspected`／`dry-run`：读取／预演通过，未执行功能写入。
-- `completed`：本次写入及独立回读通过，仍需正常关机重开验收功能。
+- `completed`：本次写入及独立回读通过，仍需关机 → 断开 USB／其他外接供电 → 拔出电池 → 至少等待 10 秒 → 插入电池 → 开机验收功能。
 - `no-op`：已处于目标状态，无需修改。
 - `blocked`／`rejected`：检查拒绝，不要删除守卫或扩大允许值来强行通过。
 - `rolled-back`：本次失败后的回退已确认。

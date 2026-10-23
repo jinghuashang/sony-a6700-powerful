@@ -3,13 +3,16 @@ import AppKit
 
 struct PreviewView: View {
     @StateObject var model = PreviewModel()
-    @State private var physicalMode = false
+    @State private var physicalMode = true
     @State private var license = false
     @State private var noticeSheet = false
     @State private var noticeLicense = false
     @State private var demoSettings = false
-    private var phase: String { model.state?.phase ?? "notice" }
+    private var phase: String { model.serviceExited ? "service-stopped" : (model.state?.phase ?? "notice") }
     private var busy: Bool { model.isBusy }
+    private var hasAftercare: Bool {
+        phase == "result" && model.state?.result?.success == true && model.state?.result?.aftercare != nil
+    }
     private var stage: Int {
         if phase == "notice" { return 0 }
         if phase == "preparation" || (["running", "result"].contains(phase) && model.state?.action == "inspect") { return 1 }
@@ -23,16 +26,15 @@ struct PreviewView: View {
             appHeader
             stepper
             Divider()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        if !model.error.isEmpty { errorBanner }
-                        content
-                    }.padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 20).id("top")
-                }.onChange(of: phase) { _ in proxy.scrollTo("top", anchor: .top) }
-            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if !model.error.isEmpty { errorBanner }
+                    content
+                }.padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 20)
+            }.id(phase) // Every new page starts at its title, including repeated results.
             if phase == "notice" || phase == "preparation" { navigationFooter }
-            else { sessionFooter }
+            else if hasAftercare { resultFooter }
+            else if phase != "service-stopped" { sessionFooter }
         }
         .frame(minWidth: 980, minHeight: 720)
         .foregroundColor(UI.ink).background(UI.background).preferredColorScheme(.light)
@@ -40,9 +42,11 @@ struct PreviewView: View {
         .onAppear { AppDelegate.operationModel = model; model.start(physical: physicalMode) }
         .onChange(of: physicalMode) { model.setMode($0) }
         .onChange(of: model.state?.revision) { _ in
-            // A successful receipt stays visible on the workspace; no extra return click.
+            // Hidden developer backup/restore commands retain their navigation.
+            // Unlock/close keep their dedicated result until explicit reconnect.
             if model.state?.phase == "result", model.state?.compatible == true,
-               model.state?.result?.success == true { model.send("home") }
+               model.state?.result?.success == true,
+               model.state?.result?.aftercare == nil { model.send("home") }
         }
         .onDisappear { model.shutdown() }
         .sheet(isPresented: $license) { LicenseView { license = false } }
@@ -56,12 +60,15 @@ struct PreviewView: View {
     }
     @ViewBuilder private var content: some View {
         switch phase {
+        case "service-stopped": OperationServiceStoppedView(model: model, physical: physicalMode)
         case "preparation":
             PageTitle(title: "准备相机", subtitle: "按下面四项完成设置，最后连接数据线。已经准备好的话，确认后即可检查。")
             PreparationGuideView(steps: model.state?.steps ?? [])
         case "home": WorkspaceView(model: model, physical: physicalMode)
         case "running": OperationProgressView(model: model, physical: physicalMode)
-        case "result": OperationFailureView(model: model, physical: physicalMode)
+        case "result":
+            if hasAftercare { OperationSuccessView(model: model, physical: physicalMode) }
+            else { OperationFailureView(model: model, physical: physicalMode) }
         default: OperationNoticeView(state: model.state, onRecheck: { model.send("environment") }, onLicense: { license = true })
         }
     }
@@ -76,6 +83,17 @@ struct PreviewView: View {
                 Text("固件 2.00 · 开发测试版").font(.system(size: 10)).foregroundColor(UI.muted)
             }
             Spacer()
+            if !physicalMode {
+                Button { demoSettings.toggle() } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 13))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).help("演示场景与连接设置").disabled(busy)
+                .accessibilityLabel("演示设置")
+                .popover(isPresented: $demoSettings, arrowEdge: .bottom) { demoPanel }
+            }
             Label(physicalMode ? (model.state?.compatible == true ? "相机已检查" : "相机模式") : "演示模式 · 不连接相机",
                   systemImage: physicalMode ? "cable.connector" : "play.circle")
                 .font(.system(size: 11, weight: .medium)).foregroundColor(UI.accent)
@@ -83,12 +101,6 @@ struct PreviewView: View {
                 Text("演示").tag(false); Text("相机").tag(true)
             }.labelsHidden().pickerStyle(.segmented).frame(width: 122).disabled(busy)
                 .accessibilityLabel("设备模式")
-            if !physicalMode {
-                Button { demoSettings.toggle() } label: { Image(systemName: "slider.horizontal.3") }
-                    .buttonStyle(.plain).help("演示场景与连接设置").disabled(busy)
-                    .accessibilityLabel("演示设置")
-                    .popover(isPresented: $demoSettings, arrowEdge: .bottom) { demoPanel }
-            }
             Menu {
                 Button("查看操作前须知") { noticeSheet = true }
                 Button("开源许可") { license = true }
@@ -131,20 +143,20 @@ struct PreviewView: View {
             Divider()
             HStack(spacing: 16) {
                 if phase == "notice" {
+                    Spacer()
                     Toggle(isOn: Binding(get: { model.state?.notice_acknowledged == true },
                                          set: { model.send("acknowledge", extra: ["value": $0]) })) {
                         Text("我已阅读并了解适用范围与操作风险").font(.system(size: 12))
                     }.toggleStyle(.checkbox).disabled(model.state == nil)
                         .accessibilityLabel("阅读确认")
-                    Spacer()
                     Button("开始准备相机") { model.send("prepare") }.buttonStyle(PrimaryStyle()).disabled(!canPrepare)
                 } else {
                     Button("返回") { model.send("cancel") }.buttonStyle(.plain).foregroundColor(UI.muted)
+                    Spacer()
                     Toggle(isOn: Binding(get: { model.state?.ready == true },
                                          set: { model.send("confirm_preparation", extra: ["value": $0]) })) {
                         Text("以上设置已完成，相机已连接并保持开机").font(.system(size: 12))
                     }.toggleStyle(.checkbox).accessibilityLabel("相机准备确认")
-                    Spacer()
                     Button(physicalMode ? "连接并检查相机" : "检查演示设备") { model.send("inspect") }
                         .buttonStyle(PrimaryStyle()).disabled(model.state?.ready != true || busy)
                 }
@@ -155,7 +167,9 @@ struct PreviewView: View {
         VStack(spacing: 0) {
             Divider()
             HStack {
-                Label(physicalMode ? "普通 USB 数据线连接 · 请保持相机开机" : "合成数据演示 · 所有操作均不访问相机",
+                Label(physicalMode ? (model.state?.compatible == true
+                      ? "相机检查已通过 · MSC 提示消失不等于断线，请保持 USB 连接"
+                      : "请保持相机开机和 USB 连接，等待应用确认结果") : "合成数据演示 · 所有操作均不访问相机",
                       systemImage: physicalMode ? "cable.connector" : "shield")
                     .font(.system(size: 10)).foregroundColor(UI.muted)
                 Spacer()
@@ -164,6 +178,21 @@ struct PreviewView: View {
                         .buttonStyle(.plain).font(.system(size: 11)).foregroundColor(UI.accent).disabled(busy)
                 }
             }.padding(.horizontal, 28).padding(.vertical, 12)
+        }.background(.white)
+    }
+    private var resultFooter: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("还想管理其他功能？").font(.system(size: 12, weight: .semibold))
+                    Text(physicalMode ? "完成机身检查后，重新连接 MSC；应用会重新检查当前状态。" : "返回准备页，重新检查演示设备后可继续体验。")
+                        .font(.system(size: 11)).foregroundColor(UI.muted)
+                }
+                Spacer()
+                Button("继续操作，重新连接") { model.send("restart_preparation") }
+                    .buttonStyle(PrimaryStyle()).disabled(busy)
+            }.padding(.horizontal, 28).padding(.vertical, 16)
         }.background(.white)
     }
     private var errorBanner: some View {

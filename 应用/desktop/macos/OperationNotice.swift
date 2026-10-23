@@ -24,11 +24,11 @@ struct OperationNoticeView: View {
                     }.padding(17).frame(maxWidth: .infinity, alignment: .leading)
                         .background(UI.accent.opacity(0.045)).cornerRadius(10)
                 }
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 14) {
                     ForEach(sections.filter { $0.level == "risk" }) { section in
-                        noticeCard(section)
+                        noticeCard(section, equalHeight: true)
                     }
-                }
+                }.fixedSize(horizontal: false, vertical: true)
                 if let disclaimer = sections.first(where: { $0.id == "disclaimer" }) { noticeCard(disclaimer) }
                 if let progress = sections.first(where: { $0.id == "validation" }) {
                     DisclosureGroup("当前验证范围", isExpanded: $validation) {
@@ -71,7 +71,7 @@ struct OperationNoticeView: View {
         }.padding(13).background(.white).cornerRadius(9)
             .overlay(RoundedRectangle(cornerRadius: 9).stroke(UI.line))
     }
-    private func noticeCard(_ section: NoticeSection) -> some View {
+    private func noticeCard(_ section: NoticeSection, equalHeight: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             Label(section.title, systemImage: section.icon).font(.system(size: 12, weight: .semibold))
                 .foregroundColor(section.level == "risk" ? UI.amber : UI.ink)
@@ -84,7 +84,7 @@ struct OperationNoticeView: View {
                 Button("查看开源许可", action: onLicense).buttonStyle(.plain)
                     .font(.system(size: 10)).foregroundColor(UI.accent)
             }
-        }.padding(16).frame(maxWidth: .infinity, alignment: .topLeading)
+        }.padding(16).frame(maxWidth: .infinity, maxHeight: equalHeight ? .infinity : nil, alignment: .topLeading)
             .background(.white).cornerRadius(10)
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(UI.line))
     }

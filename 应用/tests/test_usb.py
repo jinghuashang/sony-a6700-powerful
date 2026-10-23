@@ -138,12 +138,118 @@ class UsbTests(unittest.TestCase):
              patch.object(self.legacy, '_session_library', None), \
              patch.object(self.legacy, 'libusb_library_path', return_value='synthetic-library'), \
              patch.object(self.legacy.libusb1, 'get_backend', return_value=SimpleNamespace(lib=object())), \
-             patch.object(self.legacy.libusb1, '_LibUSB', side_effect=[first, second]), \
+             patch.object(self.legacy, '_OwnedLibUSB', side_effect=[first, second]), \
              patch.object(self.legacy.usb.core, 'find', return_value=[]) as scan:
             self.assertIs(self.legacy.get_libusb_backend(fresh=True), first)
             self.assertIs(self.legacy.get_libusb_backend(fresh=True), second)
             self.assertEqual(list(self.legacy.iter_usb_devices()), [])
             self.assertIs(scan.call_args.kwargs['backend'], second)
+
+    def test_context_rotation_keeps_device_references_alive_and_finalizes_once(self):
+        # Real pinned PyUSB object/finalizer, fake C functions: no USB init,
+        # discovery or transfers. A device resource manager retains backend.
+        import gc
+        lib = Mock()
+        pointer = iter((101, 102))
+        def initialize(out):
+            out._obj.value = next(pointer)
+            return 0
+        lib.libusb_init.side_effect = initialize
+        with patch.object(self.legacy, '_session_backend', None), \
+             patch.object(self.legacy, '_session_library', 'synthetic-library'), \
+             patch.object(self.legacy, 'libusb_library_path', return_value='synthetic-library'), \
+             patch.object(self.legacy.libusb1, 'get_backend', return_value=SimpleNamespace(lib=lib)):
+            old = self.legacy.libusb1._LibUSB(lib)
+            device_resources = SimpleNamespace(backend=old)
+            self.legacy._session_backend = old
+            del old
+            fresh = self.legacy.get_libusb_backend(fresh=True)
+            lib.libusb_exit.assert_not_called()
+            self.legacy.reset_libusb_backend()
+            lib.libusb_exit.assert_not_called()
+            del device_resources
+            gc.collect()
+            self.assertEqual(lib.libusb_exit.call_count, 1)
+            self.assertEqual(lib.libusb_exit.call_args.args[0].value, 101)
+            del fresh
+            gc.collect()
+            self.assertEqual(lib.libusb_exit.call_count, 2)
+            self.assertEqual(lib.libusb_exit.call_args.args[0].value, 102)
+
+    def test_reset_never_calls_exit_directly_on_referenced_backend(self):
+        backend = Mock(ctx=object())
+        with patch.object(self.legacy, '_session_backend', backend), \
+             patch.object(self.legacy, '_session_library', 'synthetic-library'):
+            self.legacy.reset_libusb_backend()
+            self.assertIsNone(self.legacy._session_backend)
+            self.assertIsNone(self.legacy._session_library)
+            backend.lib.libusb_exit.assert_not_called()
+            backend.finalize.assert_not_called()
+
+    def test_native_device_is_unrefed_before_its_context_exits(self):
+        # PyUSB's native _Device does not retain its backend. Exercise that
+        # actual wrapper/finalizer with synthetic C functions, no real USB.
+        import gc
+        events = []
+        lib = Mock()
+        def initialize(out):
+            out._obj.value = 101
+            return 0
+        lib.libusb_init.side_effect = initialize
+        lib.libusb_ref_device.side_effect = lambda device: device
+        lib.libusb_unref_device.side_effect = lambda device: events.append('unref')
+        lib.libusb_exit.side_effect = lambda ctx: events.append('exit')
+        with patch.object(self.legacy, '_session_backend', None), \
+             patch.object(self.legacy, '_session_library', None), \
+             patch.object(self.legacy, 'libusb_library_path', return_value='synthetic-library'), \
+             patch.object(self.legacy.libusb1, '_lib', lib), \
+             patch.object(self.legacy.libusb1, 'get_backend', return_value=SimpleNamespace(lib=lib)):
+            backend = self.legacy.get_libusb_backend(fresh=True)
+            native = self.legacy.libusb1._Device(17)
+            class NativeIterator:
+                def __iter__(self):
+                    yield native
+            with patch.object(self.legacy.libusb1._LibUSB, 'enumerate_devices', new=lambda _backend: NativeIterator()):
+                iterator = backend.enumerate_devices()
+                found = next(iter(iterator))
+                list(iterator)
+                self.assertIs(found, native)
+                self.legacy.reset_libusb_backend()
+                del backend
+                gc.collect()
+                self.assertEqual(events, [], 'live native device must retain its context')
+                native.finalize()
+                self.assertEqual(events, ['unref'])
+                del native, found, iterator
+                gc.collect()
+                self.assertEqual(events, ['unref', 'exit'])
+
+    def test_parent_native_device_retains_context_until_unref(self):
+        import gc
+        lib = Mock()
+        def initialize(out):
+            out._obj.value = 102
+            return 0
+        lib.libusb_init.side_effect = initialize
+        lib.libusb_ref_device.side_effect = lambda device: device
+        with patch.object(self.legacy, '_session_backend', None), \
+             patch.object(self.legacy, '_session_library', None), \
+             patch.object(self.legacy, 'libusb_library_path', return_value='synthetic-library'), \
+             patch.object(self.legacy.libusb1, '_lib', lib), \
+             patch.object(self.legacy.libusb1, 'get_backend', return_value=SimpleNamespace(lib=lib)):
+            backend = self.legacy.get_libusb_backend(fresh=True)
+            native = self.legacy.libusb1._Device(18)
+            with patch.object(self.legacy.libusb1._LibUSB, 'get_parent', new=lambda _backend, _device: native):
+                parent = backend.get_parent(object())
+                self.legacy.reset_libusb_backend()
+                del backend
+                gc.collect()
+                lib.libusb_exit.assert_not_called()
+                parent.finalize()
+                lib.libusb_unref_device.assert_called_once_with(18)
+            del parent, native
+            gc.collect()
+            lib.libusb_exit.assert_called_once()
 
     def test_mac_capture_is_one_step_without_reset_preparation(self):
         with patch.object(self.legacy.sys, 'platform', 'darwin'), \

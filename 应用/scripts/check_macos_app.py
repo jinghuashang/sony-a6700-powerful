@@ -63,7 +63,13 @@ def check_worker(resources, physical):
                 send('unlock');state=state_until(lambda s:not s['busy'] and s['result'] is not None)
                 assert state['simulation'] and not state['device_access'] and not state['write_attempted']
                 assert state['result']['status']=='completed',state['result']
-                send('home');state_until(lambda s:s['phase']=='home')
+                assert state['result']['aftercare']['simulation']
+                assert len(state['result']['aftercare']['features'])==4
+                assert not state['compatible'] and not state['ready']
+                send('restart_preparation');state_until(lambda s:s['phase']=='preparation')
+                send('confirm_preparation',value=True);state_until(lambda s:s['ready'])
+                send('inspect');state_until(lambda s:not s['busy'] and s['phase']=='home')
+                send('select',mode='all');state_until(lambda s:all(row['selected'] for row in s['features'] if row.get('available',True)))
                 send('restore',backup_id=backup_id)
                 state=state_until(lambda s:not s['busy'] and s['result'] is not None)
                 assert state['result']['status']=='restored',state['result']

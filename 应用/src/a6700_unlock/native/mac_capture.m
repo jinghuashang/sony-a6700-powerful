@@ -6,41 +6,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-/* Unmount only whole disks descending from the selected USB service. Never
-   force unmount and never scan/unmount unrelated external disks. */
-static BOOL unmountCameraDisks(io_service_t service) {
-    io_iterator_t children = 0;
-    kern_return_t status = IORegistryEntryCreateIterator(service, kIOServicePlane,
-                                                        kIORegistryIterateRecursively, &children);
-    if (status != KERN_SUCCESS) { printf("cannot inspect camera media\n"); return NO; }
-    NSMutableSet<NSString *> *disks = [NSMutableSet set];
-    io_registry_entry_t child;
-    while ((child = IOIteratorNext(children))) {
-        if (IOObjectConformsTo(child, "IOMedia")) {
-            CFTypeRef whole = IORegistryEntryCreateCFProperty(child, CFSTR("Whole"), kCFAllocatorDefault, 0);
-            CFTypeRef bsd = IORegistryEntryCreateCFProperty(child, CFSTR("BSD Name"), kCFAllocatorDefault, 0);
-            if (whole && CFGetTypeID(whole) == CFBooleanGetTypeID() && CFBooleanGetValue(whole)
-                && bsd && CFGetTypeID(bsd) == CFStringGetTypeID()) {
-                [disks addObject:[@"/dev/" stringByAppendingString:(__bridge NSString *)bsd]];
-            }
-            if (whole) CFRelease(whole);
-            if (bsd) CFRelease(bsd);
-        }
-        IOObjectRelease(child);
-    }
-    IOObjectRelease(children);
-    for (NSString *disk in disks) {
-        NSTask *task = [[NSTask alloc] init];
-        task.executableURL = [NSURL fileURLWithPath:@"/usr/sbin/diskutil"];
-        task.arguments = @[@"unmountDisk", disk];
-        NSError *error = nil;
-        if (![task launchAndReturnError:&error]) { printf("cannot launch diskutil\n"); return NO; }
-        [task waitUntilExit];
-        if (task.terminationStatus != 0) { printf("camera disk busy; capture cancelled\n"); return NO; }
-    }
-    return YES;
-}
-
 static BOOL hasMassStorage(io_service_t service) {
     io_iterator_t children = 0;
     if (IORegistryEntryCreateIterator(service, kIOServicePlane, kIORegistryIterateRecursively,
@@ -146,13 +111,13 @@ int main(int argc, char **argv) {
         if (geteuid() != 0) { printf("need root\n"); return 9; }
         io_service_t svc = findCamera();
         if (!svc) { printf("need exactly one Sony MSC camera\n"); return 1; }
-        if (!unmountCameraDisks(svc)) { IOObjectRelease(svc); return 3; }
         dispatch_queue_t q = dispatch_queue_create("t", NULL);
         NSError *err = nil;
         IOUSBHostDevice *dev = [[IOUSBHostDevice alloc] initWithIOService:svc
             options:IOUSBHostObjectInitOptionsDeviceCapture queue:q error:&err interestHandler:nil];
         printf("capture: %s %s\n", dev ? "OK" : "FAIL", dev ? "" : err.description.UTF8String);
         if (!dev) { IOObjectRelease(svc); return 2; }
+        sleep(1);
         [dev destroyWithOptions:IOUSBHostObjectDestroyOptionsDeviceSurrender];
         printf("surrendered\n");
         IOObjectRelease(svc);

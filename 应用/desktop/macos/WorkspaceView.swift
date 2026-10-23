@@ -37,7 +37,7 @@ struct WorkspaceView: View {
                 Spacer()
                 StatusPill(text: physical ? "A6700 · 检查通过" : "演示设备 · 检查通过")
             }
-            if let result = model.state?.result, result.success && !hideReceipt {
+            if let result = model.state?.result, result.success && result.aftercare == nil && !hideReceipt {
                 ResultReceipt(result: result, physical: physical) { hideReceipt = true }
             }
             Text("已解锁 \(available.filter { $0.state == "enabled" }.count) / \(available.count) 项")

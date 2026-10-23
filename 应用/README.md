@@ -4,13 +4,13 @@
 
 应用名称为 **Powerful6700**；内部包名与命令仍使用 `a6700_unlock`／`a6700-unlock`，沿用已有配置目录；备份恢复仍要求适配与清单哈希完全匹配。
 
-个人对 A6700 固件 2.00、USB 维护协议及功能行为的学习记录，附实验性功能解锁／关闭工具。当前为 **0.1 测试候选版（0.1.0.dev33）**；与 Sony 无关联，未获得官方授权、认证或支持。
+个人对 A6700 固件 2.00、USB 维护协议及功能行为的学习记录，附实验性功能解锁／关闭工具。当前为 **0.2 测试版（0.2.0）**；与 Sony 无关联，未获得官方授权、认证或支持。
 
 - 本版开放：FTP、关机快门帘与静音联动、灵活曝光、电子快门声音。
 - 暂不开放：位移多帧合成、动态增强防抖。两项开发与验证未完成，界面不可选择，CLI、恢复与原生写入器也不允许修改；已有实验状态不会自动撤销。
 - 桌面备份与恢复入口继续隐藏，完整备份／固件恢复尚未实现。
 
-提供 Apple Silicon、macOS 13+ 的内置环境应用，包含 Python、PyUSB、libusb 和 USB 接管组件。默认进入演示模式，真实相机操作仍需完成准备和新鲜预检。Windows 与 Intel Mac 暂不提供安装包。
+提供 Apple Silicon、macOS 13+ 的内置环境应用，包含 Python、PyUSB、libusb 和 USB 接管组件。默认相机模式启动仅检查本机环境，完成准备后才连接；演示模式保留。Windows 与 Intel Mac 暂不提供安装包。
 
 **维护者已于 2026-10-21 确认完成 dev25 安装包实机验收，当前进入扩大测试样本阶段。** 该结论不代表跨机身兼容性、故障注入或长期稳定性已全面验证。验收来源与后续测试边界见[验证记录](docs/VALIDATION.md)，本地配套交付位于 `dist/`（源码包不收录发行文件）。应用使用临时开发签名，尚未公证。
 
@@ -24,11 +24,11 @@
 
 ## 桌面交互
 
-dev19 使用“操作前须知 → 准备并连接 → 功能管理”三步流程。准备说明集中展示、菜单图按需展开；检查成功直接进入单一功能列表。右侧预览所选功能的解锁／关闭变化，桌面暂时隐藏备份与恢复入口，只展示功能解锁和关闭。成功保留就地回执，失败显示下一步，演示设置收进右上角。交互规则见[应用流程](docs/PRODUCT-FLOW.md)。
+dev19 使用“操作前须知 → 准备并连接 → 功能管理”三步流程。准备说明集中展示、菜单示意常驻展示；检查成功直接进入单一功能列表。右侧预览所选功能的解锁／关闭变化，桌面暂时隐藏备份与恢复入口，只展示功能解锁和关闭。成功进入独立结果页，列出六步断电重启、菜单检查路径及继续操作入口；失败显示下一步，演示设置收进右上角。交互规则见[应用流程](docs/PRODUCT-FLOW.md)。
 
 ## macOS 桌面应用
 
-Apple Silicon macOS 13+ 内置环境版由 `scripts/build_macos_app.py` 构建，普通使用者无需安装 Python、Homebrew、libusb 或编译器。默认进入模拟模式，可切换真实设备；准备步骤和稀疏预检仍然执行，接管 USB 时由系统弹窗请求管理员授权，不安装常驻服务。
+Apple Silicon macOS 13+ 内置环境版由 `scripts/build_macos_app.py` 构建，普通使用者无需安装 Python、Homebrew、libusb 或编译器。默认相机模式仅做本机检查，可切换演示；准备步骤和稀疏预检仍然执行，接管 USB 时由系统弹窗请求管理员授权，不安装常驻服务。
 
 ```sh
 # 开发者构建；首次允许下载固定版本的运行环境和依赖
@@ -57,7 +57,7 @@ python3 scripts/build_macos_app.py --download-runtime
 ```sh
 python3 -m venv .venv
 .venv/bin/python scripts/build_wheel.py --output-dir dist
-.venv/bin/python -m pip install 'dist/a6700_unlock-0.1.0.dev33-py3-none-any.whl[usb]'
+.venv/bin/python -m pip install 'dist/a6700_unlock-0.2.0-py3-none-any.whl[usb]'
 .venv/bin/a6700-unlock
 ```
 
@@ -112,7 +112,7 @@ a6700-unlock backups
 
 写入前会保存并同步本次窗口前镜像、目标和意图；相机内再次核对全部前值，再检查逐扇区写入、正确的 fsync 与回读。明确失败时回退已尝试的目标，主机再启动独立读取载荷确认；通信中断不自动重发写入器。写入后的本机执行记录保存失败不会跳过独立回读，仍会报告记录故障；写入前记录不能可靠保存时则拒绝发送写入器。
 
-`completed` 表示写入及独立回读一致，仍需关机重开验收实际功能；`no-op` 为无需修改；`blocked` 为预检拒绝；`rolled-back` 为回退已确认。出现 `uncertain`、`verification-failed` 或 `recovery-required` 时保留记录，先检查状态，不盲目重复写入。
+`completed` 表示写入及独立回读一致，仍需关机 → 断开 USB／其他外接供电 → 拔出电池 → 至少等待 10 秒 → 插入电池 → 开机验收实际功能；`no-op` 为无需修改；`blocked` 为预检拒绝；`rolled-back` 为回退已确认。出现 `uncertain`、`verification-failed` 或 `recovery-required` 时保留记录，先检查状态，不盲目重复写入。
 
 默认私有记录目录：macOS 为 `~/Library/Application Support/a6700-unlock/`，Linux 为 `~/.local/state/a6700-unlock/`。可用 `--state-dir` 指定；设备锁固定在本机，与记录目录无关，并与既有研究向导共用。更换记录目录不会允许同时操作相机。`preimages.json` 等只覆盖本次窗口，不能称为整机备份，也不应公开上传。`result.json` 不包含原始镜像或 ProductInfo。
 
@@ -122,7 +122,7 @@ a6700-unlock backups
 
 ## AI 分析与贡献
 
-从 [AGENTS.md](AGENTS.md) 和 [AI 代码地图](docs/AI-CONTEXT.md) 进入，按模块定位改动；提交代码遵循 [CONTRIBUTING.md](CONTRIBUTING.md)。项目提供 PR／问题模板和 GitHub Actions 配置，无需私人备份或相机即可参与普通开发。远端 CI 尚未运行，不把本地验证称为 GitHub 验证。
+从 [AGENTS.md](AGENTS.md) 和 [AI 代码地图](docs/AI-CONTEXT.md) 进入，按模块定位改动；提交代码遵循 [CONTRIBUTING.md](CONTRIBUTING.md)。项目提供 PR／问题模板和 GitHub Actions 配置，无需私人备份或相机即可参与普通开发。每次发布均核对对应提交的远端 CI，不能将本地检查冒充远端结果。
 
 ```sh
 python scripts/check.py --strict

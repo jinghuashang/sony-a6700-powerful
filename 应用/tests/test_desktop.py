@@ -55,6 +55,13 @@ class DesktopTests(unittest.TestCase):
         self.prepare(scenario)
         return self.controller.operate('inspect')
 
+    def resume(self):
+        # Reconnect without resetting the simulated device's actual state.
+        self.controller.restart_preparation()
+        self.controller.confirm_preparation(True)
+        self.controller.operate('inspect')
+        self.controller.select_features('all')
+
     def test_environment_and_all_manual_steps_gate_device_preflight(self):
         with self.assertRaises(ValueError):
             self.controller.reserve('inspect')
@@ -155,9 +162,10 @@ class DesktopTests(unittest.TestCase):
         self.controller.acknowledge_check()
         self.controller.select_features('all')
         self.assertEqual(self.controller.operate('close')['result']['status'], 'completed')
-        self.controller.home()
+        self.resume()
         self.assertEqual(self.controller.operate('unlock')['result']['status'], 'completed')
         writes = self.controller.service.backend.writes
+        self.resume()
         self.assertEqual(self.controller.operate('unlock')['result']['status'], 'no-op')
         self.assertEqual(self.controller.service.backend.writes, writes)
         self.assertEqual({f['state'] for f in self.controller.snapshot()['features'] if f['available']}, {'enabled'})
@@ -167,6 +175,61 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual({f['id']: f['state'] for f in state['features']}, {'ftp': 'enabled', 'shutter': 'disabled', 'exposure': 'disabled', 'sound': 'disabled', 'pixel_shift': 'disabled', 'dynamic_active': 'disabled'})
         self.controller.operate('unlock')
         self.assertEqual(self.controller.last_report['plan']['changed_bytes'], 6)
+
+    def test_success_stays_on_result_and_requires_fresh_preparation_and_inspection(self):
+        self.inspect('original')
+        self.controller.select_features('none')
+        self.controller.set_feature_selection('ftp', True)
+        state = self.controller.operate('unlock')
+        self.assertEqual(state['phase'], 'result')
+        self.assertTrue(state['result']['success'])
+        self.assertFalse(state['compatible']); self.assertFalse(state['ready'])
+        guide = state['result']['aftercare']
+        self.assertTrue(guide['simulation']); self.assertTrue(guide['restart_required'])
+        self.assertEqual([row['id'] for row in guide['features']], ['ftp'])
+        self.assertIn('服务器设置', guide['features'][0]['expected'])
+        self.assertEqual([row['id'] for row in guide['steps']],
+                         ['off', 'usb-out', 'battery-out', 'wait', 'battery-in', 'on'])
+        self.assertIn('10 秒', guide['steps'][3]['title'])
+        self.assertIn('USB', guide['steps'][1]['detail'])
+        for action in ('unlock', 'close', 'inspect'):
+            with self.assertRaises(ValueError): self.controller.reserve(action)
+        with self.assertRaises(ValueError): self.controller.home()
+        with self.assertRaises(ValueError): self.controller.select_features('all')
+        writes = self.controller.service.backend.writes
+        state = self.controller.restart_preparation()
+        self.assertIsNone(state['result'])
+        self.assertEqual(self.controller.service.backend.writes, writes)
+        self.controller.confirm_preparation(True)
+        with self.assertRaises(ValueError): self.controller.reserve('unlock')
+        state = self.controller.operate('inspect')
+        self.assertEqual(next(f['state'] for f in state['features'] if f['id'] == 'ftp'), 'enabled')
+
+    def test_aftercare_distinguishes_skipped_features_no_op_and_close(self):
+        self.inspect('partial')
+        self.controller.select_features('all')
+        guide = self.controller.operate('unlock')['result']['aftercare']
+        checks = {row['id']: row for row in guide['features']}
+        self.assertEqual(set(checks), {'ftp', 'shutter', 'exposure', 'sound'})
+        self.assertEqual(list(checks), ['ftp', 'shutter', 'exposure', 'sound'])
+        self.assertIn('未重复写入', checks['ftp']['outcome'])
+        self.assertIn('回读通过', checks['sound']['outcome'])
+        self.resume()
+        writes = self.controller.service.backend.writes
+        state = self.controller.operate('unlock')
+        self.assertEqual(state['result']['status'], 'no-op')
+        self.assertFalse(state['result']['aftercare']['restart_required'])
+        self.assertTrue(all('未重复写入' in f['outcome'] for f in state['result']['aftercare']['features']))
+        self.assertEqual(self.controller.service.backend.writes, writes)
+        self.resume()
+        self.controller.select_features('none')
+        self.controller.set_feature_selection('sound', True)
+        state = self.controller.operate('close')
+        checks = state['result']['aftercare']['features']
+        self.assertEqual(len(checks), 1)
+        self.assertIn('仅保留原有', checks[0]['expected'])
+        self.assertIn('已关闭', checks[0]['outcome'])
+        self.assertNotIn('试听', checks[0]['note'])
 
     def test_incompatible_or_missing_device_does_not_enable_operations(self):
         for scenario, status in [('incompatible', 'blocked'), ('disconnected', 'error')]:
@@ -183,6 +246,7 @@ class DesktopTests(unittest.TestCase):
                 self.inspect(scenario)
                 state = self.controller.operate('unlock')
                 self.assertEqual(state['result']['status'], expected)
+                self.assertIsNone(state['result']['aftercare'])
                 self.assertFalse(state['compatible'])
                 self.assertFalse(state['ready'])
                 self.assertEqual(self.controller.service.backend.writes, 1)
@@ -239,7 +303,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual([row['id'] for row in state['backups']], [backup_id])
         self.controller.home()
         self.assertEqual(self.controller.operate('unlock')['result']['status'], 'completed')
-        self.controller.home()
+        self.resume()
         state = self.controller.operate('restore', backup_id=backup_id)
         self.assertEqual(state['result']['status'], 'restored')
         self.assertTrue(state['result']['success'])
@@ -272,7 +336,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual({row['id']: row['state'] for row in result['features']},
                          {'ftp': 'enabled', 'shutter': 'disabled', 'exposure': 'enabled', 'sound': 'enabled', 'pixel_shift': 'disabled', 'dynamic_active': 'disabled'})
         self.assertEqual(self.controller.last_report['plan']['selected_features'], ['ftp', 'exposure', 'sound'])
-        self.controller.home()
+        self.resume()
         self.controller.select_features('all')
         self.assertEqual({row['id']: row['selected'] for row in self.controller.snapshot()['features']},
                          {'ftp': True, 'shutter': True, 'exposure': True, 'sound': True, 'pixel_shift': False, 'dynamic_active': False})
@@ -283,7 +347,7 @@ class DesktopTests(unittest.TestCase):
         backup_id = state['result']['backup_id']
         self.controller.home()
         self.controller.operate('unlock')
-        self.controller.home()
+        self.resume()
         self.controller.select_features('none')
         self.controller.set_feature_selection('ftp', True)
         state = self.controller.operate('restore', backup_id=backup_id)
@@ -488,9 +552,60 @@ class PhysicalDesktopTests(unittest.TestCase):
         self.assertFalse(result['simulation'])
         self.assertTrue(result['device_access'])
         self.assertTrue(result['write_attempted'])
-        self.assertFalse(self.backend.closed)
+        self.assertTrue(self.backend.closed)
+        self.assertTrue(result['result']['success'])
+        self.assertFalse(result['result']['aftercare']['simulation'])
+        self.assertFalse(result['connected']); self.assertFalse(result['compatible'])
+        self.assertIsNone(controller.service._session_backend)
+        self.assertIsNone(controller.service._session_lock)
         controller.service.close_session()
         self.assertTrue(self.backend.closed)
+
+    def test_unlock_keeps_shared_lock_through_write_readback_and_exit(self):
+        import fcntl
+        controller = self.physical_controller()
+        self.prepare(controller)
+        controller.operate('inspect')
+        backend = self.backend
+        calls = []
+        def assert_locked(label):
+            calls.append(label)
+            with (self.directory/'host/.assistant.lock').open('a+') as file:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        read, write = backend.read, backend.write
+        def locked_read(*args):
+            assert_locked('read')
+            return read(*args)
+        def locked_write(*args):
+            assert_locked('write')
+            return write(*args)
+        def locked_exit(*args):
+            assert_locked('exit')
+            backend.closed = True
+        backend.read, backend.write, backend.__exit__ = locked_read, locked_write, locked_exit
+        self.assertTrue(controller.operate('unlock')['result']['success'])
+        self.assertEqual(calls, ['read', 'write', 'read', 'exit'])
+        with (self.directory/'host/.assistant.lock').open('a+') as file:
+            fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_service_exit_failure_preserves_verified_result_and_releases_lock(self):
+        import fcntl
+        controller = self.physical_controller()
+        self.prepare(controller)
+        controller.operate('inspect')
+        def fail_exit(*args): raise RuntimeError('synthetic exit failure')
+        self.backend.__exit__ = fail_exit
+        state = controller.operate('unlock')
+        self.assertTrue(state['result']['success'])
+        self.assertEqual(state['result']['status'], 'completed')
+        self.assertIn('synthetic exit failure', state['result']['cleanup_warning'])
+        self.assertFalse(state['ready']); self.assertFalse(state['connected'])
+        self.assertIsNone(controller.service._session_backend)
+        record = json.loads((Path(controller.last_report['run_directory'])/'session-exit.json').read_text())
+        self.assertEqual(record['cleanup_status'], 'unconfirmed')
+        with (self.directory/'host/.assistant.lock').open('a+') as file:
+            fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_hidden_backup_directory_is_not_scanned_during_startup_or_inspect(self):
         controller = self.physical_controller()

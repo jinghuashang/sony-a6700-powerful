@@ -78,7 +78,7 @@ def main():
         (args.output/'Contents/MacOS/A6700Preview').chmod(0o755)
     print('Built development preview:', args.output)
     print('Uses local Python:', python)
-    print('Default mode is simulated; real USB mode still requires hardware acceptance.')
+    print('Default camera mode checks the local environment only; simulation remains available.')
 
 
 if __name__ == '__main__':

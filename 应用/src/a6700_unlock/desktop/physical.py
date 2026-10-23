@@ -26,8 +26,8 @@ class PhysicalService:
         self.connected = False
         self.simulation = False
         # Keep one authenticated USB session open for this app process. The
-        # first operation asks for authorization; later operations reuse the
-        # same interface and channel, without another password prompt.
+        # first operation asks for authorization; inspection and the chosen
+        # write reuse it. Unlock/close then end the session before power-off.
         self._session_backend = None
         self._session_lock = None
         self._last_run_directory = None
@@ -42,23 +42,32 @@ class PhysicalService:
         backend, self._session_backend = self._session_backend, None
         lock, self._session_lock = self._session_lock, None
         self.connected = False
+        exit_error = None
         try:
             if backend is not None:
                 backend.__exit__(None, None, None)
+        except BaseException as exc:
+            exit_error = str(exc) or type(exc).__name__
+            raise
         finally:
             try:
                 if backend is not None and self._last_run_directory is not None:
                     from ..operations import save_json
                     try:
                         save_json(self._last_run_directory / 'session-exit.json', dict(
-                            cleanup_status=getattr(backend, 'cleanup_status', None),
-                            cleanup_warning=getattr(backend, 'cleanup_warning', None)))
+                            cleanup_status=('unconfirmed' if exit_error else getattr(backend, 'cleanup_status', None)),
+                            cleanup_warning=exit_error or getattr(backend, 'cleanup_warning', None)))
                     except OSError:
                         pass
             finally:
                 self._last_run_directory = None
                 if lock is not None:
                     lock.__exit__(None, None, None)
+                try:
+                    from ..usb.legacy import reset_libusb_backend
+                    reset_libusb_backend()
+                except Exception:
+                    pass
 
     def _backend(self, progress, capture):
         if self.backend_factory is not None:
@@ -105,10 +114,18 @@ class PhysicalService:
             self.close_session()
             raise
         self._last_run_directory = Path(result['run_directory'])
-        if result.get('status') in ('error', 'uncertain'):
-            self.close_session()
-            result['cleanup_status'] = getattr(backend, 'cleanup_status', None)
-            result['cleanup_warning'] = getattr(backend, 'cleanup_warning', None)
-        self.connected = result.get('status') in (
+        if action in ('unlock', 'close') or result.get('status') in ('error', 'uncertain'):
+            try:
+                self.close_session()
+            except Exception as exc:
+                # A service-exit failure must not erase the recorded write
+                # and independent readback result. The lock is released in
+                # close_session's finally block, and the next run reconnects.
+                result['cleanup_status'] = 'unconfirmed'
+                result['cleanup_warning'] = str(exc) or type(exc).__name__
+            else:
+                result['cleanup_status'] = getattr(backend, 'cleanup_status', None)
+                result['cleanup_warning'] = getattr(backend, 'cleanup_warning', None)
+        self.connected = self._session_backend is not None and result.get('status') in (
             'inspected', 'dry-run', 'completed', 'no-op', 'backup-completed', 'restored')
         return result

@@ -148,6 +148,40 @@ _session_backend = None
 _session_library = None
 
 
+class _OwnedLibUSB(libusb1._LibUSB):
+    """Keep the context alive through PyUSB 1.2.1 native-object cleanup.
+
+    Its _Device and _DevIterator only hold C pointers, not their backend.
+    ResourceManager can drop its backend before its native device is unrefed.
+    Pin the owner on those wrappers so their C finalizers run first. Do not
+    modify PyUSB globals or retain a growing process-wide list of contexts.
+    """
+    def enumerate_devices(self):
+        iterator = super().enumerate_devices()
+        iterator._a6700_backend_owner = self
+        for device in iterator:
+            device._a6700_backend_owner = self
+            yield device
+
+    def get_parent(self, device):
+        parent = super().get_parent(device)
+        if parent is not None:
+            parent._a6700_backend_owner = self
+        return parent
+
+
+def reset_libusb_backend():
+    """Drop our cache; PyUSB owns context teardown after device references die.
+
+    Calling libusb_exit directly leaves PyUSB's finalizer armed and retained
+    Device/_ResourceManager objects pointing to freed native state. Neither
+    refresh nor reconnect may invalidate their context underneath them.
+    """
+    global _session_backend, _session_library
+    _session_backend = None
+    _session_library = None
+
+
 def get_libusb_backend(*, fresh=False):
     global _session_backend, _session_library
     library = libusb_library_path()
@@ -155,16 +189,16 @@ def get_libusb_backend(*, fresh=False):
     if backend is None:
         raise ProbeError(f"PyUSB could not load {library}")
     if fresh:
-        # PyUSB 1.2.1 caches one context forever. macOS surrender/re-enumeration
-        # can leave that context with removed devices. Create a new context only
-        # after capture, with all previous interface handles already released.
-        _session_backend = libusb1._LibUSB(backend.lib)
+        # Replacing this reference lets the old backend live as long as any
+        # PyUSB device still needs it. Its own finalizer closes it exactly once.
+        lib = getattr(backend, "lib", None)
+        _session_backend = _OwnedLibUSB(lib) if lib is not None else backend
         _session_library = library
     return _session_backend if _session_library == library else backend
 
 
-def iter_usb_devices():
-    backend = get_libusb_backend()
+def iter_usb_devices(*, fresh=False):
+    backend = get_libusb_backend(fresh=fresh)
     try:
         yield from usb.core.find(find_all=True, backend=backend)
     except usb.core.NoBackendError as exc:

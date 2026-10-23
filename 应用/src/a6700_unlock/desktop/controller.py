@@ -12,6 +12,7 @@ from ..notice import operation_notice
 from ..usb.backend import payloads
 from .physical import PhysicalService
 from .simulation import SCENARIOS, SimulationService
+from .aftercare import build_aftercare
 
 
 SIMULATION_RESULT_LABELS = {
@@ -30,7 +31,7 @@ SIMULATION_RESULT_LABELS = {
 }
 
 PHYSICAL_RESULT_LABELS = {
-    'completed': ('操作完成', '写入和独立回读通过。请正常退出后关机重开，再确认实际功能。'),
+    'completed': ('操作完成', '写入与独立回读通过，待机身验收。请按下方步骤断电重启并检查菜单。'),
     'no-op': ('已经是目标状态', '没有重复发送写入器。'),
     'blocked': ('兼容性检查未通过', '设备内容或结构守卫与预期不一致，所选功能修改已停止。'),
     'error': ('未能完成检查', '检查 USB 连接、相机模式和准备状态后，再主动重新检查。'),
@@ -439,7 +440,14 @@ class DesktopController:
                                    device_access=self.device_access, write_attempted=self.write_attempted,
                                    backup_path=result.get('backup_path', ''),
                                    backup_sha256=result.get('backup_sha256', ''),
-                                   backup_id=result.get('backup_id', ''))
+                                   backup_id=result.get('backup_id', ''),
+                                   cleanup_warning=result.get('cleanup_warning') or '',
+                                   aftercare=build_aftercare(action, result, features,
+                                                             self.mode == 'simulation'))
+                if action in ('unlock', 'close'):
+                    # The result remains visible, but its inspection cannot
+                    # authorize another operation after a camera power cycle.
+                    self.compatible = False
                 self.phase = 'result'
             if not self.compatible:
                 self.confirmed.clear()

@@ -88,8 +88,9 @@ def capture_macos(progress):
     from ..bundled import resource
     helper = resource('capture')
     if helper is not None:
-        progress('正在请求系统授权以接管相机 USB 接口…')
+        progress('请在 macOS 弹窗授权接管 USB（Mac 管理员密码或 Touch ID）…')
         script = ('on run argv\n'
+                  'tell application "System Events" to activate\n'
                   'do shell script (quoted form of (item 1 of argv)) with administrator privileges\n'
                   'end run')
         result = subprocess.run(['/usr/bin/osascript', '-e', script, str(helper)],
