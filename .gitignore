@@ -22,3 +22,7 @@ captures/
 # 公开的固定引导文件；校验值见已验证文件/文件校验.json
 !已验证文件/Pico-v2.uf2
 !已验证文件/相机只读引导.bin
+
+# 仅随对应源码提供的固定自编 ARM64 载荷
+!应用/src/a6700_unlock/data/native/reader.elf
+!应用/src/a6700_unlock/data/native/writer.elf

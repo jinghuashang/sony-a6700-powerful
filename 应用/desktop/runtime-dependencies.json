@@ -1,0 +1,15 @@
+{
+  "pyusb": {
+    "version": "1.2.1",
+    "filename": "pyusb-1.2.1-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/15/a8/4982498b2ab44d1fcd5c49f07ea3795eab01601dc143b009d333fcace3b9/pyusb-1.2.1-py3-none-any.whl",
+    "sha256": "2b4c7cb86dbadf044dfb9d3a4ff69fd217013dbe78a792177a3feb172449ea36"
+  },
+  "libusb": {
+    "version": "1.0.30",
+    "filename": "libusb-1.0.30.tar.bz2",
+    "url": "https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2",
+    "sha256": "fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf",
+    "source": "https://github.com/libusb/libusb/tree/v1.0.30"
+  }
+}

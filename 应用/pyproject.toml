@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "a6700-unlock"
+version = "0.2.0"
+description = "A6700 bundle unlock/close framework with sparse USB preflight and verification"
+requires-python = ">=3.10"
+dependencies = []
+readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+
+[project.optional-dependencies]
+usb = ["pyusb==1.2.1", "libusb-package==1.0.30.0; sys_platform == \"win32\""]
+test = ["unicorn==2.1.4", "pyelftools==0.33"]
+
+[project.scripts]
+a6700-unlock = "a6700_unlock.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+a6700_unlock = ["data/*.json", "data/legal/*.txt", "data/legal/*.md", "data/native/*.json", "data/native/*.elf", "native/*.c", "native/*.m", "usb/reference/sony_pmca/*.txt"]

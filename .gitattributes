@@ -1,6 +1,16 @@
-# 固定 Pico 历史输入的 LF 字节，避免 Windows 检出时改变 SHA-256。
-源码/硬件/Pico注入/pico_boot/* text eol=lf
+# 文本统一以 LF 入库和检出，固定哈希的源码不因平台改变字节。
+* text=auto eol=lf
 
-# 固定引导文件按二进制保存，不转换换行。
+# Windows 脚本保留 CRLF。
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 固定二进制与图片不做换行转换。
 *.uf2 -text
 *.bin -text
+*.elf -text
+*.icns -text
+*.png -text
+*.jpg -text
+*.jpeg -text
