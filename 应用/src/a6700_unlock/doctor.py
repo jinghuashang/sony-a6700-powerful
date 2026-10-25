@@ -16,8 +16,8 @@ def diagnose(profile):
     checks = [
         check('python', 'Python', sys.version_info >= (3, 10), platform.python_version(),
               '源码运行请使用 Python 3.10+；桌面版应重新安装匹配系统的应用。'),
-        check('platform', '平台', sys.platform in ('darwin', 'linux'), sys.platform,
-              '当前设备连接层支持 macOS／Linux，Windows 适配尚未完成。'),
+        check('platform', '平台', sys.platform in ('darwin', 'linux', 'win32'), sys.platform,
+              '当前设备连接层支持 macOS／Linux／Windows；Windows 端 USB 驱动与实机链路仍待验证。'),
         check('pyusb', 'PyUSB', find_spec('usb') is not None, '设备操作需要 a6700-unlock[usb]',
               '源码运行安装 a6700-unlock[usb]；桌面版应包含此组件。'),
     ]
@@ -36,10 +36,10 @@ def diagnose(profile):
         from .usb.legacy import check_libusb_library
         available = check_libusb_library()
         checks.append(check('libusb', 'libusb', available, '只检查库加载，不初始化 USB 会话',
-                            '源码运行请安装系统 libusb；桌面版请重新获取完整应用。'))
+                            '源码运行请安装 libusb；Windows 使用 a6700-unlock[usb] 提供的 DLL。'))
     except Exception as exc:
         checks.append(check('libusb', 'libusb', False, str(exc),
-                            '源码运行请安装系统 libusb；桌面版请重新获取完整应用。'))
+                            '源码运行请安装 libusb；Windows 使用 a6700-unlock[usb] 提供的 DLL。'))
     try:
         assets = payloads(profile)
         checks.append(check('payload-integrity', '固定范围载荷完整性', True,

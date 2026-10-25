@@ -9,14 +9,18 @@ from pathlib import Path
 import sys
 import uuid
 
-from .backup import Backup, create_backup, default_backup_dir, restore_plan
+from .backup import Backup, create_backup, default_backup_dir, restore_plan, sync_directory
 from .device_profile import inspect_sectors
 from .device_protocol import DeviceError
 
 
 def default_state_dir():
-    return (Path.home() / "Library/Application Support/a6700-unlock" if sys.platform == "darwin"
-            else Path.home() / ".local/state/a6700-unlock")
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/a6700-unlock"
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA")
+        return (Path(base) if base else Path.home() / "AppData/Local") / "a6700-unlock"
+    return Path.home() / ".local/state/a6700-unlock"
 
 
 def make_directory(path):
@@ -32,11 +36,7 @@ def make_directory(path):
         except FileExistsError:
             if not directory.is_dir():
                 raise
-        fd = os.open(directory.parent, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(directory.parent)
 
 
 def save_json(path, data):
@@ -49,11 +49,7 @@ def save_json(path, data):
         os.fsync(out.fileno())
     # A successful file fsync is insufficient if its new directory entry has
     # not reached storage. If directory syncing is unsupported, stop pre-write.
-    parent_fd = os.open(Path(path).parent, os.O_RDONLY)
-    try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
+    sync_directory(Path(path).parent)
 
 
 def record_warning(result, message):
@@ -63,17 +59,31 @@ def record_warning(result, message):
 
 def host_lock_path():
     # Shared with the existing research wizards, independent of report paths.
-    base = (Path.home() / "Library/Application Support" if sys.platform == "darwin"
-            else Path.home() / ".local/state")
+    if sys.platform == "darwin":
+        base = Path.home() / "Library/Application Support"
+    elif os.name == "nt":
+        base = default_state_dir().parent
+    else:
+        base = Path.home() / ".local/state"
     return base / "sony-a6700-ftp/.assistant.lock"
+
+
+def _lock_exclusive(lock):
+    """Take a non-blocking exclusive lock; close releases it on both platforms."""
+    if os.name == "nt":
+        import msvcrt
+        lock.seek(0)
+        try:
+            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            raise BlockingIOError(str(exc)) from exc
+    else:
+        import fcntl
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 @contextlib.contextmanager
 def device_lock(directory):
-    try:
-        import fcntl
-    except ImportError as exc:
-        raise DeviceError("设备执行目前支持 macOS／Linux；Windows 尚未验证") from exc
     # Keep the previous per-directory lock as well, for concurrent dev2 clients.
     # Never unlink either file: existing handles must retain the same inode.
     with contextlib.ExitStack() as stack:
@@ -81,7 +91,7 @@ def device_lock(directory):
             make_directory(path.parent)
             lock = stack.enter_context(path.open("a+"))
             try:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _lock_exclusive(lock)
             except BlockingIOError as exc:
                 raise DeviceError("本机已有相机工具运行，请等待其完成；更换记录目录不会绕过设备锁") from exc
         yield

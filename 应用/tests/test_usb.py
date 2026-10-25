@@ -117,6 +117,20 @@ class UsbTests(unittest.TestCase):
             self.assertIs(self.legacy.wait_for_service_device(0x0e76, 0x0336, 1), service)
         scan.assert_called_once_with(require_bulk=False)
 
+    def test_windows_source_install_uses_packaged_libusb_dll(self):
+        packaged = SimpleNamespace(find_library=lambda name: 'C:/tools/libusb-1.0.dll')
+        with patch.object(self.legacy.sys, 'platform', 'win32'), \
+             patch.dict('sys.modules', {'libusb_package': packaged}):
+            self.assertEqual(self.legacy.libusb_library_path(), 'C:/tools/libusb-1.0.dll')
+
+    def test_windows_missing_dll_reports_reinstall_without_falling_back(self):
+        missing = SimpleNamespace(find_library=lambda name: None)
+        with patch.object(self.legacy.sys, 'platform', 'win32'), \
+             patch.dict('sys.modules', {'libusb_package': missing}), \
+             patch.dict('sys.modules', {'libusb_package_missing': None}):
+            with self.assertRaisesRegex(self.legacy.ProbeError, 'DLL was not found'):
+                self.legacy.libusb_library_path()
+
     def test_mac_auth_refreshes_context_after_capture_and_identity_transition(self):
         initial = SimpleNamespace(idProduct=0x0e76)
         service = SimpleNamespace(idProduct=0x0336)

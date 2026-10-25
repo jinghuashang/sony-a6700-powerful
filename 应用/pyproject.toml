@@ -13,7 +13,7 @@ license = "GPL-3.0-only"
 license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 
 [project.optional-dependencies]
-usb = ["pyusb==1.2.1"]
+usb = ["pyusb==1.2.1", "libusb-package==1.0.30.0; sys_platform == \"win32\""]
 test = ["unicorn==2.1.4", "pyelftools==0.33"]
 
 [project.scripts]

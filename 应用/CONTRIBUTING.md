@@ -16,12 +16,22 @@ python3 -m venv .venv
 
 基础验证排除原生仿真但覆盖模拟 USB。没有测试依赖时，可先运行不带 `--strict` 的命令查看跳过原因；不能把跳过称为通过。源码运行的相机准备检查可用 `python -m a6700_unlock prepare`，不会枚举或认证相机。
 
+Windows PowerShell 等价的源码准备与测试：
+
+```powershell
+py -3.12 -m venv ".venv"
+& "./.venv/Scripts/python.exe" -X utf8 -m pip install -e ".[usb,test]"
+& "./.venv/Scripts/python.exe" -X utf8 scripts/check.py --native --strict
+```
+
+Windows 真实 USB 维护会话尚未验收；离线测试通过不等于相机实机适配完成。
+
 ## 提交与评审
 
 1. Fork 仓库并创建分支；一个 PR 解决一个明确问题，避免同时重排大段历史代码。
 2. 根据下表补齐代码、文档和相应验证；修复失败场景时增加能够复现问题的测试。
 3. 提交 PR，填写问题、行为变化、验证命令／结果与未覆盖范围。AI 辅助修改也使用相同流程，可简述使用范围，不提交私人对话。
-4. PR 的无设备 CI 在 Linux／macOS 检查 Python 兼容性、模拟测试和打包。CI 配置随工程提供，远端仓库启用后才会真实运行；目前不宣称已在 GitHub 跑过。
+4. PR 的无设备 CI 在 Linux／macOS／Windows 检查 Python 兼容性、模拟测试和打包。CI 配置随工程提供，远端仓库启用后才会真实运行；目前不宣称已在 GitHub 跑过。
 5. 维护者评审后合并。涉及原生执行或设备布局的改动由维护者另行安排实机验收；提交者不必为普通文档、界面或事务模拟修复自行刷相机。
 
 | 改动 | 需要同步的信息 |

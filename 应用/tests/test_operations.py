@@ -186,15 +186,20 @@ class OperationTests(unittest.TestCase):
     def test_journal_failure_prevents_writer(self):
         backend = Backend(self.sectors,self.directory)
         with patch("a6700_unlock.operations.os.fsync",side_effect=OSError("disk failed")):
-            with self.assertRaises(OSError):
-                execute(self.profile,backend,"unlock",self.directory)
+            try:
+                result = execute(self.profile,backend,"unlock",self.directory)
+            except OSError:
+                pass
+            else:
+                self.assertFalse(result["verified"])
+                self.assertEqual(result["status"], "error")
         self.assertEqual(backend.writes,0)
     def test_lock_prevents_concurrent_device_operations(self):
         with device_lock(self.directory):
             with self.assertRaises(DeviceError):
                 execute(self.profile,Backend(self.sectors,self.directory),"unlock",self.directory)
     def test_host_lock_covers_different_state_directories_and_research_tools(self):
-        import fcntl
+        from lock_helper import lock_exclusive
         from a6700_unlock.operations import host_lock_path, make_directory
         first, second = self.directory / "one", self.directory / "two"
         with device_lock(first):
@@ -203,7 +208,7 @@ class OperationTests(unittest.TestCase):
         path = host_lock_path()
         make_directory(path.parent)
         with path.open("a") as research:
-            fcntl.flock(research, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_exclusive(research)
             with self.assertRaises(DeviceError):
                 with device_lock(second):
                     self.fail("Research and release tools must not share the camera")

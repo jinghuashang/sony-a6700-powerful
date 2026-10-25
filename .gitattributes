@@ -1,0 +1,16 @@
+# 文本统一以 LF 入库和检出，固定哈希的源码不因平台改变字节。
+* text=auto eol=lf
+
+# Windows 脚本保留 CRLF。
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 固定二进制与图片不做换行转换。
+*.uf2 -text
+*.bin -text
+*.elf -text
+*.icns -text
+*.png -text
+*.jpg -text
+*.jpeg -text

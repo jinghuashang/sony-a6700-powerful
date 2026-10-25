@@ -7,13 +7,23 @@ permissions:
   contents: read
 jobs:
   syntax:
-    runs-on: ubuntu-latest
+    name: 脚本 / ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python: ['3.10', '3.13']
+        include:
+          - os: ubuntu-latest
+            python: '3.10'
+          - os: ubuntu-latest
+            python: '3.13'
+          - os: windows-latest
+            python: '3.10'
+          - os: windows-latest
+            python: '3.13'
     defaults:
       run:
-        working-directory: 源码
+        shell: bash
     steps:
       - uses: actions/checkout@v7
         with:
@@ -21,7 +31,32 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m compileall -q -x '/\._' 核心 脚本
+      - name: 安装主机依赖
+        run: python -m pip install -r "源码/依赖列表.txt"
+      - name: 检查 Python 语法
+        run: python -X utf8 -m compileall -q -x '/\._' "源码"
+      - name: 离线校验固定载荷和 Pico 输入
+        run: |
+          python -X utf8 "源码/脚本/进入Fastboot.py" --载荷 "已验证文件/相机只读引导.bin"
+          python -X utf8 "源码/脚本/准备Pico源码.py" --输出目录 "${RUNNER_TEMP}/pico_boot"
+      - name: 检查命令帮助
+        run: |
+          python -X utf8 "源码/脚本/进入Fastboot.py" --help
+          python -X utf8 "源码/脚本/查询Fastboot.py" --help
+          python -X utf8 "源码/脚本/备份扇区.py" --help
+          python -X utf8 "源码/脚本/构建相机引导.py" --help
+      - name: 初始化 Windows USB 后端（不枚举设备）
+        if: runner.os == 'Windows'
+        run: |
+          python -X utf8 - <<'PY'
+          import libusb_package
+          import usb.backend.libusb1
+
+          backend = usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
+          if backend is None:
+              raise RuntimeError('Windows libusb DLL 无法加载')
+          print('Windows libusb 后端初始化通过，未枚举设备。')
+          PY
   application:
     name: 应用 / ${{ matrix.os }} / Python ${{ matrix.python }}
     strategy:
@@ -31,6 +66,8 @@ jobs:
           - os: ubuntu-latest
             python: '3.10'
           - os: ubuntu-latest
+            python: '3.13'
+          - os: windows-latest
             python: '3.13'
           - os: macos-latest
             python: '3.13'

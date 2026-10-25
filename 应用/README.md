@@ -10,7 +10,7 @@
 - 暂不开放：位移多帧合成、动态增强防抖。两项开发与验证未完成，界面不可选择，CLI、恢复与原生写入器也不允许修改；已有实验状态不会自动撤销。
 - 桌面备份与恢复入口继续隐藏，完整备份／固件恢复尚未实现。
 
-提供 Apple Silicon、macOS 13+ 的内置环境应用，包含 Python、PyUSB、libusb 和 USB 接管组件。默认相机模式启动仅检查本机环境，完成准备后才连接；演示模式保留。Windows 与 Intel Mac 暂不提供安装包。
+提供 Apple Silicon、macOS 13+ 的内置环境应用，包含 Python、PyUSB、libusb 和 USB 接管组件。默认相机模式启动仅检查本机环境，完成准备后才连接；演示模式保留。Windows 与 Intel Mac 暂不提供安装包；Windows 可用源码 CLI 运行，见下文。
 
 **维护者已于 2026-10-21 确认完成 dev25 安装包实机验收，当前进入扩大测试样本阶段。** 该结论不代表跨机身兼容性、故障注入或长期稳定性已全面验证。验收来源与后续测试边界见[验证记录](docs/VALIDATION.md)，本地配套交付位于 `dist/`（源码包不收录发行文件）。应用使用临时开发签名，尚未公证。
 
@@ -52,7 +52,7 @@ python3 scripts/build_macos_app.py --download-runtime
 
 ## 安装与启动
 
-需要 Python 3.10+、PyUSB 1.2.1 和系统 libusb。设备框架当前支持 macOS／Linux；源码运行时 macOS 接口接管需要 Command Line Tools 的 clang；内置环境版已预编译，接管时仍请求系统授权。Windows 尚未适配。
+需要 Python 3.10+、PyUSB 1.2.1 和系统 libusb。设备框架支持 macOS／Linux，Windows 已完成源码 CLI 适配（设备锁、状态目录、UTF-8 与随依赖提供的 libusb DLL），真实 USB 维护会话仍待实机验证；源码运行时 macOS 接口接管需要 Command Line Tools 的 clang；内置环境版已预编译，接管时仍请求系统授权。
 
 ```sh
 python3 -m venv .venv
@@ -61,7 +61,16 @@ python3 -m venv .venv
 .venv/bin/a6700-unlock
 ```
 
-源码目录也可运行 `sh start.sh`，macOS 可双击 `启动工具.command`；依赖仍按上面的步骤安装。
+源码目录也可运行 `sh start.sh`，macOS 可双击 `启动工具.command`；依赖仍按上面的步骤安装。Windows PowerShell 使用 `应用/start.cmd` 或直接运行：
+
+```powershell
+py -3.12 -m venv ".venv"
+& "./.venv/Scripts/python.exe" -X utf8 -m pip install -e ".[usb]"
+& "./start.cmd" doctor
+& "./start.cmd" catalog
+```
+
+Windows 的真实相机 USB 维护会话尚未验收；驱动与连接边界见[运行框架](docs/RUNTIME.md)。
 
 构建脚本过滤 macOS `._*` 元数据并检查资源完整性，同名 wheel 不覆盖。包内有预编译 ARM64 载荷及上游参考模块／许可；使用者不需要交叉编译器、研究目录或个人历史备份。
 

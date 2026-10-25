@@ -125,7 +125,7 @@
 | 内置环境 | 从固定哈希缓存源码构建，14 个 Mach-O 通过架构／最低系统／依赖路径与签名检查；应用搬移后自检通过：模拟备份／解锁／恢复，以及真实模式环境检查均通过，device_access=false、write_attempted=false |
 | 许可与来源 | 自有 GPL-3.0-only、包内法律资源一致；Sony-PMCA-RE 与 python-sha1 MIT 保留；11 份 verified 原件哈希一致；CPython／PyUSB／libusb 许可随包，libusb 固定对应源包随包 |
 | 隐私初检 | 源码允许列表无整机镜像／私人报告；扫描未发现维护者绝对路径、典型局域网地址或令牌格式；固定公开协议常量保留，不等于私人凭据 |
-| 签名与平台 | 临时开发签名，未公证；仅 Apple Silicon macOS 13+，Windows／Intel 安装包未提供 |
+| 签名与平台 | 临时开发签名，未公证；安装包仅 Apple Silicon macOS 13+，Windows／Intel 安装包未提供。Windows 源码 CLI 已完成代码与离线测试适配，真实 USB 维护会话未验收 |
 | 远端交付 | 未上传此次应用或源码，GitHub CI 未运行，不能称为正式 0.1 发布 |
 
 以下是用户补充验收结论前的检查清单，保留供核对及后续测试，不再把“尚未进行本包实机验收”作为当前发布阻塞：

@@ -4,7 +4,7 @@
 
 ## 安装源码环境
 
-以 macOS 为例，需要 Python 3.10+、libusb 和 Command Line Tools。源码设备层也支持 Linux，但本版公开验收以 macOS 为主；Windows 未适配。
+以 macOS 为例，需要 Python 3.10+、libusb 和 Command Line Tools。源码设备层也支持 Linux；Windows 已完成源码 CLI 的代码与离线适配，但真实 USB 维护会话尚未实机验收，驱动配置见[运行框架](应用/docs/RUNTIME.md)。
 
 ```sh
 git clone https://github.com/xyzhangxin/sony-a6700-powerful.git

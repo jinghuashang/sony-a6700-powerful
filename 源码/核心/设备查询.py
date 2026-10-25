@@ -3,6 +3,7 @@ import argparse
 from contextlib import contextmanager
 import json
 from pathlib import Path
+import sys
 
 
 def query(device, command):
@@ -45,7 +46,13 @@ def connect(libusb=None):
     import usb.backend.libusb1
     if libusb and not libusb.is_file():
         raise ValueError('USB库参数必须指向实际存在的系统库')
-    backend = usb.backend.libusb1.get_backend(find_library=(lambda _: str(libusb.resolve())) if libusb else None)
+    find_library = None
+    if libusb:
+        find_library = lambda _: str(libusb.resolve())
+    elif sys.platform == 'win32':
+        import libusb_package
+        find_library = libusb_package.find_library
+    backend = usb.backend.libusb1.get_backend(find_library=find_library)
     if backend is None:
         raise RuntimeError('System libusb missing; see 操作手册.md')
     devices = list(usb.core.find(find_all=True, idVendor=0x18D1, idProduct=0x4EE0, backend=backend))

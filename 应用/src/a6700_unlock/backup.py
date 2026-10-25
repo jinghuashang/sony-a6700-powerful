@@ -39,6 +39,18 @@ def default_backup_dir() -> Path:
     return Path.home() / "Documents" / "A6700 Backups"
 
 
+def sync_directory(path):
+    """Persist a directory entry where the platform supports directory fsync."""
+    if os.name == "nt":
+        # Windows cannot open a directory for fsync; NTFS journals the entry.
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -55,19 +67,11 @@ def _ensure_directory(path: Path):
         except FileExistsError:
             if not directory.is_dir():
                 raise
-        fd = os.open(directory.parent, os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        sync_directory(directory.parent)
 
 
 def _sync_file(path: Path):
-    fd = os.open(path.parent, os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+    sync_directory(path.parent)
 
 
 def _feature_rows(plan):

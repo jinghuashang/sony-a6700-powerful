@@ -109,6 +109,21 @@ def libusb_library_path():
     bundled = resource('libusb')
     if bundled is not None:
         return str(bundled)
+    if sys.platform == "win32":
+        try:
+            import libusb_package
+        except ImportError as exc:
+            raise ProbeError(
+                "libusb-1.0 was not found. Install it with: "
+                "python -m pip install \"a6700-unlock[usb]\""
+            ) from exc
+        library = libusb_package.find_library("libusb-1.0")
+        if library is None:
+            raise ProbeError(
+                "libusb-1.0 DLL was not found. Reinstall a6700-unlock[usb] "
+                "or provide libusb-1.0.dll on PATH"
+            )
+        return str(library)
     if sys.platform.startswith("linux"):
         library = ctypes.util.find_library('usb-1.0')
         if library is None:

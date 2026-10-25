@@ -8,9 +8,9 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--上游目录','--upstream',dest='upstream',type=Path,required=True)
 parser.add_argument('--输出目录','--output',dest='output',type=Path)
 parser.add_argument('--cc',default=shutil.which('clang'))
-parser.add_argument('--ld',default=shutil.which('aarch64-elf-ld') or shutil.which('aarch64-linux-gnu-ld'))
-parser.add_argument('--objcopy',default=shutil.which('aarch64-elf-objcopy') or shutil.which('aarch64-linux-gnu-objcopy'))
-parser.add_argument('--nm',default=shutil.which('aarch64-elf-nm') or shutil.which('aarch64-linux-gnu-nm'))
+parser.add_argument('--ld',default=shutil.which('aarch64-elf-ld') or shutil.which('aarch64-linux-gnu-ld') or shutil.which('aarch64-none-elf-ld'))
+parser.add_argument('--objcopy',default=shutil.which('aarch64-elf-objcopy') or shutil.which('aarch64-linux-gnu-objcopy') or shutil.which('aarch64-none-elf-objcopy'))
+parser.add_argument('--nm',default=shutil.which('aarch64-elf-nm') or shutil.which('aarch64-linux-gnu-nm') or shutil.which('aarch64-none-elf-nm'))
 args=parser.parse_args()
 if not all((args.cc,args.ld,args.objcopy,args.nm)):
     parser.error('需要PATH中的clang和AArch64 GNU binutils（ld、objcopy、nm），也可通过参数指定')
@@ -29,7 +29,7 @@ def replace_fn(text,name,new):
             return text[:m.start()]+new+text[end+1:]
     raise ValueError(name)
 
-text=(REF/'src/fastboot.c').read_text()
+text=(REF/'src/fastboot.c').read_text(encoding='utf-8')
 text=replace_fn(text,'cmd_help','''static void cmd_help(void)
 {
     fb_result("A6700 AP-only read candidate: getvar, upload");
@@ -60,7 +60,7 @@ text=replace_fn(text,'fastboot_command','''static void fastboot_command(const ch
 }''')
 text=text.replace('fb_okay("ILCE-7M4");','fb_okay("A6700-AP-read-candidate");')
 text=text.replace('fb_okay("ILCE7M4-fastboot");','fb_okay("A6700-RAM-fastboot");')
-(SRC/'fastboot.c').write_text(text)
+(SRC/'fastboot.c').write_text(text,encoding='utf-8',newline='\n')
 (SRC/'main.c').write_text('''#include "io.h"
 #include "led.h"
 #include "timer.h"
@@ -96,14 +96,14 @@ int main(void) {
     usb_gadget_run();
     return 0;
 }
-''')
-usb=(REF/'src/usb.c').read_text()
+''',encoding='utf-8',newline='\n')
+usb=(REF/'src/usb.c').read_text(encoding='utf-8')
 usb='extern void diag_tick(void);\nextern void diag_set(unsigned int phase);\n'+usb
 usb=usb.replace('led_activity_tick();','diag_tick();').replace('led_activity();','/* heartbeat is independent of event activity */')
 usb=usb.replace('static void on_reset(void)\n{','static void on_reset(void)\n{\n    diag_set(2);')
 usb=usb.replace('static int handle_get_descriptor(void)\n{','static int handle_get_descriptor(void)\n{\n    diag_set(3);')
 usb=usb.replace('configured = 1;','diag_set(4);\n            configured = 1;')
-(SRC/'usb.c').write_text(usb)
+(SRC/'usb.c').write_text(usb,encoding='utf-8',newline='\n')
 (SRC/'no_cp.c').write_text('''#include "io.h"
 #include "cetus.h"
 void log_init(void) {}
@@ -111,7 +111,7 @@ void mira_log(const char *s) {(void)s;}
 void mira_logx(const char *s,u64 v) {(void)s;(void)v;}
 int cetus_read(u32 a,u8 *b,u32 n,u32 w) {(void)a;(void)b;(void)n;(void)w;return CETUS_E_ARG;}
 int cetus_nor_read(u32 a,u8 *b,u32 n) {(void)a;(void)b;(void)n;return CETUS_E_ARG;}
-''')
+''',encoding='utf-8',newline='\n')
 sources=[SRC/'main.c',SRC/'fastboot.c',SRC/'no_cp.c',SRC/'usb.c']
 sources += [REF/'src'/n for n in ('start.S','delay.c','led.c','usb_phy.c','dwc3.c','sdhci.c')]
 sources += [REF/'src/spacc.c']
@@ -125,8 +125,8 @@ elf=OUT/(stem+'.elf')
 subprocess.run([args.ld,'-T',str(REF/'fastboot.ld'),'--gc-sections','--build-id=none','-Map='+str(OUT/'fastboot-read.map'),'-o',str(elf),*map(str,objects)],check=True)
 binary=OUT/(stem+'.bin')
 subprocess.run([args.objcopy,'-O','binary',str(elf),str(binary)],check=True)
-symbols=subprocess.check_output([args.nm,'--defined-only',str(elf)],text=True)
-(OUT/'symbols.txt').write_text(symbols)
+symbols=subprocess.check_output([args.nm,'--defined-only',str(elf)],text=True,encoding='utf-8')
+(OUT/'symbols.txt').write_text(symbols,encoding='utf-8',newline='\n')
 for name in ('mmc_write_blocks','cmd_flash','cmd_download','cetus_bring_up','cmd_exec','cmd_poke','system_reset'):
     if re.search(r'\b'+name+r'$',symbols,re.M):
         raise RuntimeError('不应链接的符号：'+name)
@@ -137,9 +137,9 @@ r={'upstream_commit':'2328d18ce640e6c8cd9341efcf0043ce9042a135',
    'mode':'只读','real_device_write_verified':False,
    'build_is_not_hardware_validation':True}
 if r['bytes']>0x10000: raise RuntimeError('Payload exceeds fixed RAM window')
-(OUT/'manifest.json').write_text(json.dumps(r,indent=2)+'\n')
+(OUT/'manifest.json').write_text(json.dumps(r,indent=2)+'\n',encoding='utf-8',newline='\n')
 print(json.dumps(r,indent=2))
-catalog=json.loads((Path(__file__).resolve().parents[1]/'核心/载荷清单.json').read_text())
+catalog=json.loads((Path(__file__).resolve().parents[1]/'核心/载荷清单.json').read_text(encoding='utf-8'))
 expected=catalog['只读']['sha256']
 if r['sha256'] != expected:
     raise SystemExit('构建结果与载荷清单不同，可能是工具链差异；注入仍被阻止，不要绕过哈希。')

@@ -194,9 +194,14 @@ class PlannerTests(unittest.TestCase):
         with LocalImage(self.paths["app"], 1536) as image:
             replacement = self.directory / "replacement"
             replacement.write_bytes(self.originals["app"])
-            replacement.replace(self.paths["app"])
-            with self.assertRaises(InputError):
-                image.assert_unchanged()
+            if os.name == "nt":
+                # Windows refuses replacement while the validated handle is open.
+                with self.assertRaises(PermissionError):
+                    replacement.replace(self.paths["app"])
+            else:
+                replacement.replace(self.paths["app"])
+                with self.assertRaises(InputError):
+                    image.assert_unchanged()
 
     def test_v2_extension_skips_v1_and_adds_only_new_feature(self):
         installed = self.apply_to_copy(analyze(self.catalog, self.paths, "unlock"))
